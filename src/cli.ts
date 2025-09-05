@@ -38,12 +38,12 @@ const rootCommand: CommandSpec = {
     { name: "help", short: "h", type: "boolean", description: "Show help and usage information" },
     { name: "version", short: "v", type: "boolean", description: "Show the version number" },
   ],
-  run: ({ positionals }) => {
+  run: async ({ positionals }) => {
     // Placeholder business logic; show help if nothing supplied for now.
     if (positionals.length === 0) return printHelpAndReturn(0);
 
     try {
-      main(positionals[0]);
+      await main(positionals[0]);
       return 0;
     } catch (error) {
       logger.error(`Failed to migrate project: ${error instanceof Error ? error.message : String(error)}`);
@@ -131,7 +131,7 @@ function printHelpAndReturn(code: number) {
   return code;
 }
 
-export function cli(argv: string[]): number {
+export async function cli(argv: string[]): Promise<number> {
   const commandName = undefined; // placeholder for future subcommand parsing
   const command = resolveCommand(commandName)!;
   const { values, positionals } = parseArgs({ ...buildParseConfig(command), args: argv.slice(2) });
@@ -143,14 +143,11 @@ export function cli(argv: string[]): number {
   }
 
   const ctx: RunContext = { values, positionals, pkg: getPackageJson() };
-  const result = command.run(ctx);
-  if (typeof result === "number") return result;
-  // If promise returned, block (CLI infra only; acceptable sync wait here)
-  // Node 22 top-level await allowed but keeping compatibility w/ sync exit pattern.
-  throw new Error("Async command.run not yet supported in infrastructure stub");
+  const result = await command.run(ctx);
+  return result;
 }
 
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
-  const code = cli(process.argv);
+  const code = await cli(process.argv);
   process.exit(code);
 }

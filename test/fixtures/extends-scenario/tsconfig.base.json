@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": "src",
+    "paths": {
+      "utils/*": ["utils/*"],
+      "components/*": ["components/*"]
+    },
+    "target": "es2020",
+    "module": "esnext"
+  }
+}

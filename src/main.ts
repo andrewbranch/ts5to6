@@ -1,15 +1,32 @@
 import { existsSync } from "node:fs";
-import { extname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
+import { parseConfigFileTextToJson, readJsonConfigFile } from "typescript";
+import { discoverRelatedTSConfigs } from "./discoverRelatedTSConfigs.ts";
 import { getAllTSConfigs } from "./getAllTSConfigs.ts";
 import { getNonRelativePathsFixes } from "./getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "./getNonRelativePathsProblems.ts";
 import { getProjects } from "./getProjects.ts";
 import { logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
-import type { TextEdit } from "./types.ts";
+import type { TextEdit, TSConfig } from "./types.ts";
 import { writeFixes } from "./writeFixes.ts";
 
-export function main(path: string) {
+function findWorkspaceRoot(tsconfigPath: string): string {
+  let currentDir = dirname(tsconfigPath);
+
+  // Look for package.json to determine workspace root
+  while (currentDir !== dirname(currentDir)) {
+    if (existsSync(resolve(currentDir, "package.json"))) {
+      return currentDir;
+    }
+    currentDir = dirname(currentDir);
+  }
+
+  // Fallback to directory containing the tsconfig if no package.json is found
+  return dirname(tsconfigPath);
+}
+
+export async function main(path: string) {
   logger.heading("TypeScript baseUrl Migration Tool");
 
   const tsconfigPath = resolveTsconfig(path);
@@ -25,17 +42,26 @@ export function main(path: string) {
   const projects = getProjects(tsconfigPath);
   const tsconfigs = getAllTSConfigs(projects);
 
-  if (tsconfigs.length > 1) {
-    logger.info(`Found ${logger.number(tsconfigs.length)} tsconfig files:`);
+  // Discover any additional tsconfigs that extend files we're about to modify
+  const workspaceRoot = findWorkspaceRoot(tsconfigPath);
+  const relatedTSConfigs = await discoverRelatedTSConfigs(tsconfigs, workspaceRoot);
+  const allTSConfigs = [...tsconfigs, ...relatedTSConfigs];
+
+  if (allTSConfigs.length > 1) {
+    logger.info(`Found ${logger.number(allTSConfigs.length)} tsconfig files:`);
     logger.withIndent(() => {
-      for (const tsconfig of tsconfigs) {
-        logger.info(logger.file(relative(process.cwd(), tsconfig.fileName)));
+      for (const tsconfig of allTSConfigs) {
+        const isAdditional = relatedTSConfigs.includes(tsconfig);
+        const marker = isAdditional ? logger.info : logger.info;
+        marker(
+          logger.file(relative(process.cwd(), tsconfig.fileName)) + (isAdditional ? " (extends base config)" : ""),
+        );
       }
     });
   }
 
   // Analyze path problems
-  const pathsProblems = getNonRelativePathsProblems(tsconfigs);
+  const pathsProblems = getNonRelativePathsProblems(allTSConfigs);
 
   if (pathsProblems.length === 0) {
     logger.success("No non-relative path mappings found");
@@ -49,7 +75,7 @@ export function main(path: string) {
 
   // Generate and apply fixes
   const pathFixes = pathsProblems.flatMap(getNonRelativePathsFixes);
-  const baseUrlFixes = getRemoveBaseUrlEdits(tsconfigs);
+  const baseUrlFixes = getRemoveBaseUrlEdits(allTSConfigs);
   const allFixes = [...pathFixes, ...baseUrlFixes];
 
   if (allFixes.length === 0) {
@@ -91,6 +117,26 @@ export function main(path: string) {
   });
 
   logger.info("Your TypeScript project has been successfully migrated!");
+}
+
+function parseTSConfigFile(filePath: string): TSConfig {
+  const file = readJsonConfigFile(filePath, (path) => {
+    if (!existsSync(path)) {
+      throw new Error(`File not found: ${path}`);
+    }
+    return require("node:fs").readFileSync(path, "utf-8");
+  });
+
+  const json = parseConfigFileTextToJson(filePath, file.text);
+  if (json.error) {
+    throw new Error(`Could not parse tsconfig JSON: ${json.error.messageText}`);
+  }
+
+  return {
+    fileName: filePath,
+    raw: json.config,
+    file,
+  };
 }
 
 function resolveTsconfig(path: string) {

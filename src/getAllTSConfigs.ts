@@ -1,6 +1,5 @@
-import { extendedConfigCache } from "./getProjects.ts";
 import type { Project, TSConfig } from "./types.ts";
-import { toPath } from "./utils.ts";
+import { extendedConfigCache, toPath } from "./utils.ts";
 
 export function getAllTSConfigs(projects: readonly Project[]): TSConfig[] {
   const tsconfigs = new Map<string, TSConfig>();

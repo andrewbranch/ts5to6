@@ -1,7 +1,12 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "other-dist"
+    "outDir": "other-dist",
+    "paths": {
+      "models/*": ["models/*"],
+      "services/*": ["services/*"],
+      "shared/*": ["shared/*"]
+    }
   },
   "include": ["other-src/**/*"]
 }

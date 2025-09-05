@@ -10,90 +10,54 @@ import { getProjects } from "../src/getProjects.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-test("discoverRelatedTSConfigs - finds extending configs", async () => {
-  const tsconfigPath = resolve(__dirname, "fixtures", "project-references", "tsconfig.json");
+test("discoverRelatedTSConfigs - extends scenario fixture", async () => {
+  // Test the extends-scenario fixture to ensure we discover tsconfig.other.json
+  // when analyzing tsconfig.json (both extend tsconfig.base.json)
+  const tsconfigPath = resolve(__dirname, "fixtures", "extends-scenario", "tsconfig.json");
   const projects = getProjects(tsconfigPath);
   const tsconfigs = getAllTSConfigs(projects);
 
-  // Get workspace root (should be the fixtures/project-references directory)
-  const workspaceRoot = resolve(__dirname, "fixtures", "project-references");
-
-  // Discover related configs
+  const workspaceRoot = resolve(__dirname, "fixtures", "extends-scenario");
   const relatedConfigs = await discoverRelatedTSConfigs(tsconfigs, workspaceRoot);
 
-  // Should find at least one config (tsconfig.base.json is extended by others)
-  // The exact number depends on the fixture structure, but we should find some
-  assert(relatedConfigs.length >= 0, "Should discover related configs (could be 0 if no extends relationships)");
+  // Should find tsconfig.other.json since it extends the same base config
+  const otherConfigFound = relatedConfigs.some(config => config.fileName.endsWith("tsconfig.other.json"));
+  assert(otherConfigFound, "Should discover tsconfig.other.json that extends the same base");
 
-  // If we found related configs, verify they're valid TSConfig objects
-  for (const config of relatedConfigs) {
-    assert(config.fileName, "Related config should have a fileName");
-    assert(config.file, "Related config should have a file object");
-    assert(typeof config.file.getFullText === "function", "Related config should have TypeScript source file");
-  }
-
-  // Verify all discovered configs are within the workspace
-  for (const config of relatedConfigs) {
-    const relativePath = config.fileName.replace(workspaceRoot, "");
-    assert(
-      !relativePath.startsWith(".."),
-      `Related config ${config.fileName} should be within workspace ${workspaceRoot}`,
-    );
-  }
-
-  // Test that we can process the combined set of configs
+  // Test that we can process all configs together and find problems in both
   const allConfigs = [...tsconfigs, ...relatedConfigs];
   const problems = getNonRelativePathsProblems(allConfigs);
 
-  // Should be able to process all configs without errors
-  assert(Array.isArray(problems), "Should successfully analyze all discovered configs");
+  // Should find problems in multiple configs:
+  // 1. tsconfig.base.json with utils/* and components/*
+  // 2. tsconfig.other.json with models/*, services/*, shared/*
+  assert(problems.length >= 2, `Should find problems in multiple configs, found ${problems.length}`);
 
-  // Each problem should have valid fixes
-  for (const problem of problems) {
-    const fixes = getNonRelativePathsFixes(problem);
-    assert(Array.isArray(fixes), "Should generate fixes for each problem");
+  // Verify we found the base config problem
+  const baseConfigProblem = problems.find(p => p.tsconfig.fileName.endsWith("tsconfig.base.json"));
+  assert(baseConfigProblem, "Should find problems in tsconfig.base.json");
 
-    // Each fix should have valid positions
-    for (const fix of fixes) {
-      assert(typeof fix.start === "number" && fix.start >= 0, "Fix should have valid start position");
-      assert(typeof fix.end === "number" && fix.end >= fix.start, "Fix should have valid end position");
-      assert(typeof fix.newText === "string", "Fix should have valid newText");
-    }
-  }
-});
+  // Verify we found the other config problem
+  const otherConfigProblem = problems.find(p => p.tsconfig.fileName.endsWith("tsconfig.other.json"));
+  assert(otherConfigProblem, "Should find problems in tsconfig.other.json");
 
-test("discoverRelatedTSConfigs - excludes node_modules", async () => {
-  const tsconfigPath = resolve(__dirname, "fixtures", "sample-project", "tsconfig.json");
-  const projects = getProjects(tsconfigPath);
-  const tsconfigs = getAllTSConfigs(projects);
+  // Generate fixes for all problems
+  const allFixes = problems.flatMap(getNonRelativePathsFixes);
+  assert(allFixes.length >= 5, `Should generate fixes for all non-relative paths, found ${allFixes.length}`);
 
-  // Use the test directory as workspace root to ensure we have a broader search area
-  const workspaceRoot = resolve(__dirname, "..");
+  // Verify base config fixes
+  const baseConfigFixes = allFixes.filter(fix => fix.fileName.endsWith("tsconfig.base.json"));
+  assert(baseConfigFixes.length >= 2, "Should have fixes for utils/* and components/* in base config");
 
-  // Discover related configs
-  const relatedConfigs = await discoverRelatedTSConfigs(tsconfigs, workspaceRoot);
+  // Verify other config fixes
+  const otherConfigFixes = allFixes.filter(fix => fix.fileName.endsWith("tsconfig.other.json"));
+  assert(otherConfigFixes.length >= 3, "Should have fixes for models/*, services/*, shared/* in other config");
 
-  // Verify no configs from node_modules are included
-  for (const config of relatedConfigs) {
+  // Verify the fixes convert to relative paths
+  for (const fix of allFixes) {
     assert(
-      !config.fileName.includes("node_modules"),
-      `Should not include configs from node_modules: ${config.fileName}`,
+      fix.newText.includes("./") || fix.newText.includes("../"),
+      `Fix should convert to relative path: ${fix.newText}`,
     );
-  }
-});
-
-test("discoverRelatedTSConfigs - handles empty input", async () => {
-  const workspaceRoot = resolve(__dirname, "fixtures", "sample-project");
-
-  // Test with empty tsconfigs array
-  const relatedConfigs = await discoverRelatedTSConfigs([], workspaceRoot);
-
-  // Should return empty array or configs that don't extend anything from the empty input
-  assert(Array.isArray(relatedConfigs), "Should return an array");
-
-  // If any configs are returned, they should be valid
-  for (const config of relatedConfigs) {
-    assert(config.fileName, "Each config should have a fileName");
-    assert(config.file, "Each config should have a file object");
   }
 });

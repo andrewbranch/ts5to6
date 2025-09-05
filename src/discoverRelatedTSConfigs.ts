@@ -1,8 +1,7 @@
 import { glob } from "glob";
-import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { parseConfigFileTextToJson, readJsonConfigFile } from "typescript";
 import type { TSConfig } from "./types.ts";
+import { parseTsconfig } from "./utils.ts";
 
 /**
  * Discovers all tsconfig*.json files that might extend any of the given tsconfigs.
@@ -29,7 +28,7 @@ export async function discoverRelatedTSConfigs(
     }
 
     try {
-      const tsconfig = parseTSConfigFile(path);
+      const tsconfig = parseTsconfig(path);
 
       // Check if this tsconfig extends any of our target tsconfigs
       if (extendsAnyOf(tsconfig, tsconfigs)) {
@@ -43,24 +42,6 @@ export async function discoverRelatedTSConfigs(
   }
 
   return relatedConfigs;
-}
-
-/**
- * Parses a tsconfig file from disk
- */
-function parseTSConfigFile(fileName: string): TSConfig {
-  const file = readJsonConfigFile(fileName, (path) => readFileSync(path, "utf-8"));
-  const json = parseConfigFileTextToJson(fileName, file.text);
-
-  if (json.error) {
-    throw new Error(`Could not parse tsconfig JSON: ${json.error.messageText}`);
-  }
-
-  return {
-    fileName,
-    raw: json.config,
-    file,
-  };
 }
 
 /**

@@ -1,5 +1,18 @@
 import { dirname, resolve } from "node:path";
-import ts, { type ObjectLiteralExpression, type PropertyAssignment, type StringLiteral, SyntaxKind } from "typescript";
+import ts, {
+  type ExtendedConfigCacheEntry,
+  formatDiagnostic,
+  type FormatDiagnosticsHost,
+  type ObjectLiteralExpression,
+  type ParseConfigFileHost,
+  parseConfigFileTextToJson,
+  parseJsonSourceFileConfigFileContent,
+  type PropertyAssignment,
+  readJsonConfigFile,
+  type StringLiteral,
+  SyntaxKind,
+  sys,
+} from "typescript";
 import type { ProjectTSConfig, TSConfig } from "./types.ts";
 
 export const getCanonicalFileName = ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames);
@@ -51,4 +64,54 @@ export function getEffectiveBaseUrl(tsconfig: TSConfig): string | undefined {
     const baseUrlLiteral = baseUrlProperty.initializer as StringLiteral;
     return resolve(dirname(tsconfig.fileName), baseUrlLiteral.text);
   }
+}
+
+const diagnosticFormatHost: FormatDiagnosticsHost = {
+  getCanonicalFileName,
+  getCurrentDirectory: sys.getCurrentDirectory,
+  getNewLine: () => sys.newLine,
+};
+
+const parseConfigHost: ParseConfigFileHost = {
+  useCaseSensitiveFileNames: sys.useCaseSensitiveFileNames,
+  readDirectory: sys.readDirectory,
+  fileExists: sys.fileExists,
+  readFile: sys.readFile,
+  getCurrentDirectory: sys.getCurrentDirectory,
+  onUnRecoverableConfigFileDiagnostic: diagnostic => {
+    throw new Error(`Unrecoverable tsconfig.json error: ${formatDiagnostic(diagnostic, diagnosticFormatHost)}`);
+  },
+};
+
+export const extendedConfigCache = new Map<string, ExtendedConfigCacheEntry>();
+
+/**
+ * Parses a tsconfig file into a ProjectTSConfig with full compiler options resolution
+ */
+export function parseTsconfig(tsconfigPath: string): ProjectTSConfig {
+  const tsconfigSourceFile = readJsonConfigFile(tsconfigPath, sys.readFile);
+  const parsed = parseJsonSourceFileConfigFileContent(
+    tsconfigSourceFile,
+    parseConfigHost,
+    sys.getCurrentDirectory(),
+    undefined,
+    tsconfigPath,
+    undefined,
+    undefined,
+    extendedConfigCache,
+  );
+
+  const json = parseConfigFileTextToJson(tsconfigPath, tsconfigSourceFile.text);
+  if (json.error) {
+    throw new Error(
+      `Could not parse tsconfig JSON at path: ${tsconfigPath}: ${formatDiagnostic(json.error, diagnosticFormatHost)}`,
+    );
+  }
+
+  return {
+    fileName: tsconfigPath,
+    raw: json.config,
+    file: tsconfigSourceFile,
+    parsed,
+  };
 }

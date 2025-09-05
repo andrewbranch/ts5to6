@@ -52,8 +52,7 @@ export async function main(path: string) {
     logger.withIndent(() => {
       for (const tsconfig of allTSConfigs) {
         const isAdditional = relatedTSConfigs.includes(tsconfig);
-        const marker = isAdditional ? logger.info : logger.info;
-        marker(
+        logger.info(
           logger.file(relative(process.cwd(), tsconfig.fileName)) + (isAdditional ? " (extends base config)" : ""),
         );
       }

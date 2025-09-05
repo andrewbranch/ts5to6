@@ -1,14 +1,17 @@
-import { basename, extname, isAbsolute, resolve } from "node:path";
+import { extname, isAbsolute, resolve } from "node:path";
 import { getAllTSConfigs } from "./getAllTSConfigs.ts";
+import { getNonRelativePathsFixes } from "./getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "./getNonRelativePathsProblems.ts";
 import { getProjects } from "./getProjects.ts";
-import type { Project } from "./types.ts";
+import { writeFixes } from "./writeFixes.ts";
 
 export function main(path: string) {
   const tsconfigPath = resolveTsconfig(path);
   const projects = getProjects(tsconfigPath);
   const tsconfigs = getAllTSConfigs(projects);
   const pathsProblems = getNonRelativePathsProblems(tsconfigs);
+  const fixes = pathsProblems.flatMap(getNonRelativePathsFixes);
+  writeFixes(fixes);
 }
 
 function resolveTsconfig(path: string) {

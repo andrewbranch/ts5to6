@@ -10,13 +10,13 @@ export function getAllTSConfigs(projects: readonly Project[]): TSConfig[] {
   return Array.from(tsconfigs.values());
 
   function collectConfigs(tsconfig: TSConfig) {
-    if (!tsconfigs.has(tsconfig.path)) {
-      tsconfigs.set(tsconfig.path, tsconfig);
+    if (!tsconfigs.has(tsconfig.fileName)) {
+      tsconfigs.set(tsconfig.fileName, tsconfig);
       for (const extended of tsconfig.file.extendedSourceFiles ?? []) {
         const cacheEntry = extendedConfigCache.get(toPath(extended));
         if (cacheEntry?.extendedConfig && !tsconfigs.has(cacheEntry.extendedResult.fileName)) {
           const tsconfig: TSConfig = {
-            path: cacheEntry.extendedResult.fileName,
+            fileName: cacheEntry.extendedResult.fileName,
             raw: cacheEntry.extendedConfig.raw,
             file: cacheEntry.extendedResult,
           };

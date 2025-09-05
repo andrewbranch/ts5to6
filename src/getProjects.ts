@@ -71,7 +71,7 @@ function parseTsconfig(tsconfigPath: string): ProjectTSConfig {
   }
 
   return {
-    path: tsconfigPath,
+    fileName: tsconfigPath,
     raw: json.config,
     file: tsconfigSourceFile,
     parsed,

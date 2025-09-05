@@ -1,7 +1,13 @@
-import type { ParsedCommandLine, Program, ResolvedModuleFull, StringLiteralLike, TsConfigSourceFile } from "typescript";
+import type {
+  ParsedCommandLine,
+  ResolvedModuleFull,
+  StringLiteral,
+  StringLiteralLike,
+  TsConfigSourceFile,
+} from "typescript";
 
 export interface TSConfig {
-  path: string;
+  fileName: string;
   raw: any;
   file: TsConfigSourceFile;
 }
@@ -17,6 +23,8 @@ export interface Project {
 export interface NonRelativePathsProblem {
   kind: "NonRelativePaths";
   tsconfig: TSConfig;
+  effectiveBaseUrl: string;
+  problematicPaths: StringLiteral[];
 }
 
 export interface ResolutionUsesBaseUrlProblem {
@@ -27,3 +35,10 @@ export interface ResolutionUsesBaseUrlProblem {
 }
 
 export type Problem = NonRelativePathsProblem | ResolutionUsesBaseUrlProblem;
+
+export interface TextEdit {
+  fileName: string;
+  newText: string;
+  start: number;
+  end: number;
+}

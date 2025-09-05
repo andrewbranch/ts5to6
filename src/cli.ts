@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { main } from "./main.ts";
 
 // Declarative option (flag) definition
 interface OptionDescriptor {
@@ -38,7 +39,8 @@ const rootCommand: CommandSpec = {
   run: ({ positionals }) => {
     // Placeholder business logic; show help if nothing supplied for now.
     if (positionals.length === 0) return printHelpAndReturn(0);
-    process.stdout.write("Not yet implemented.\n");
+
+    main(positionals[0]);
     return 0;
   },
 };
@@ -111,7 +113,7 @@ function printHelpAndReturn(code: number) {
   return code;
 }
 
-export function main(argv: string[]): number {
+export function cli(argv: string[]): number {
   const commandName = undefined; // placeholder for future subcommand parsing
   const command = resolveCommand(commandName)!;
   const { values, positionals } = parseArgs({ ...buildParseConfig(command), args: argv.slice(2) });
@@ -131,6 +133,6 @@ export function main(argv: string[]): number {
 }
 
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
-  const code = main(process.argv);
+  const code = cli(process.argv);
   process.exit(code);
 }

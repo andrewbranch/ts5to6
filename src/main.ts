@@ -3,6 +3,7 @@ import { getAllTSConfigs } from "./getAllTSConfigs.ts";
 import { getNonRelativePathsFixes } from "./getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "./getNonRelativePathsProblems.ts";
 import { getProjects } from "./getProjects.ts";
+import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
 import { writeFixes } from "./writeFixes.ts";
 
 export function main(path: string) {
@@ -10,7 +11,10 @@ export function main(path: string) {
   const projects = getProjects(tsconfigPath);
   const tsconfigs = getAllTSConfigs(projects);
   const pathsProblems = getNonRelativePathsProblems(tsconfigs);
-  const fixes = pathsProblems.flatMap(getNonRelativePathsFixes);
+  const fixes = [
+    ...pathsProblems.flatMap(getNonRelativePathsFixes),
+    ...getRemoveBaseUrlEdits(tsconfigs),
+  ];
   writeFixes(fixes);
 }
 

@@ -9,7 +9,7 @@ export function toPath(fileName: string): string {
 }
 
 export function isProjectTSConfig(tsconfig: TSConfig): tsconfig is ProjectTSConfig {
-  return "parsed" in tsconfig && tsconfig.parsed != null;
+  return "parsed" in tsconfig && tsconfig.parsed != undefined;
 }
 
 export function getEffectiveBaseUrl(tsconfig: TSConfig): string | undefined {

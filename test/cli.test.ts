@@ -16,10 +16,16 @@ function runCLI(args: string[]) {
   return result;
 }
 
+function stripAnsiCodes(text: string): string {
+  // Remove ANSI escape codes
+  return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
 test("prints help with --help", () => {
   const { stdout, status } = runCLI(["--help"]);
   assert.equal(status, 0);
-  assert.match(stdout, /Usage: ts-fix-baseurl/);
+  const cleanOutput = stripAnsiCodes(stdout);
+  assert.match(cleanOutput, /Usage: ts-fix-baseurl/);
 });
 
 test("prints version with --version", () => {

@@ -1,8 +1,10 @@
 #!/usr/bin/env -S node --experimental-strip-types
 
+import chalk from "chalk";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { logger } from "./logger.ts";
 import { main } from "./main.ts";
 
 // Declarative option (flag) definition
@@ -40,8 +42,13 @@ const rootCommand: CommandSpec = {
     // Placeholder business logic; show help if nothing supplied for now.
     if (positionals.length === 0) return printHelpAndReturn(0);
 
-    main(positionals[0]);
-    return 0;
+    try {
+      main(positionals[0]);
+      return 0;
+    } catch (error) {
+      logger.error(`Failed to migrate project: ${error instanceof Error ? error.message : String(error)}`);
+      return 1;
+    }
   },
 };
 
@@ -83,27 +90,38 @@ function renderHelp(commandName?: string): string {
   if (!command) return `Unknown command: ${commandName}`;
 
   const lines: string[] = [];
-  lines.push(`${pkg.name} v${pkg.version}`);
+  lines.push(chalk.bold.blue(`${pkg.name} v${pkg.version}`));
   lines.push("");
-  const usageBase = "Usage:";
+  const usageBase = chalk.bold("Usage:");
   if (command === rootCommand) {
-    lines.push(`${usageBase} ts-fix-baseurl [options] [path ...]`);
+    lines.push(`${usageBase} ${chalk.cyan("ts-fix-baseurl")} ${chalk.yellow("[options]")} ${chalk.green("<path>")}`);
   } else {
-    lines.push(`${usageBase} ts-fix-baseurl ${command.name} [options]`);
+    lines.push(
+      `${usageBase} ${chalk.cyan("ts-fix-baseurl")} ${chalk.magenta(command.name)} ${chalk.yellow("[options]")}`,
+    );
   }
   lines.push("");
   lines.push(command.description);
   lines.push("");
-  lines.push("Options:");
+  lines.push(chalk.bold("Arguments:"));
+  lines.push(`  ${chalk.green("path")}        Path to tsconfig.json file or directory containing tsconfig.json`);
+  lines.push("");
+  lines.push(chalk.bold("Options:"));
   lines.push(...formatOptions(command.options));
   const subcommands = commands.filter(c => c !== rootCommand && c.name);
   if (command === rootCommand && subcommands.length) {
-    lines.push("\nCommands:");
+    lines.push("");
+    lines.push(chalk.bold("Commands:"));
     const pad = Math.max(...subcommands.map(c => c.name.length)) + 2;
     for (const c of subcommands) {
-      lines.push("  " + c.name.padEnd(pad) + c.description);
+      lines.push("  " + chalk.magenta(c.name.padEnd(pad)) + c.description);
     }
   }
+  lines.push("");
+  lines.push(chalk.dim("Examples:"));
+  lines.push(chalk.dim("  ts-fix-baseurl .                    # Fix current directory"));
+  lines.push(chalk.dim("  ts-fix-baseurl ./tsconfig.json     # Fix specific tsconfig"));
+  lines.push(chalk.dim("  ts-fix-baseurl my-project/          # Fix project directory"));
   lines.push("");
   return lines.join("\n");
 }

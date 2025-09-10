@@ -106,7 +106,7 @@ export async function main(path: string) {
   const allFixes = [...pathFixes, ...baseUrlFixes];
 
   if (allFixes.length === 0) {
-    logger.success("No changes needed - all configurations are already correct!");
+    logger.success("No changes needed!");
     return;
   }
 

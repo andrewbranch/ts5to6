@@ -5,9 +5,10 @@ import {
   type StringLiteral,
   SyntaxKind,
 } from "typescript";
+import type { ConfigStore } from "./configStore.ts";
 import type { NonRelativePathsProblem, TSConfig } from "./types.ts";
 
-export function getNonRelativePathsProblems(tsconfigs: TSConfig[]): NonRelativePathsProblem[] {
+export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: ConfigStore): NonRelativePathsProblem[] {
   const problems: NonRelativePathsProblem[] = [];
 
   for (const tsconfig of tsconfigs) {
@@ -43,15 +44,18 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[]): NonRelativeP
       continue;
     }
 
-    const effectiveBaseUrl = tsconfig.effectiveBaseUrl;
+    const effectiveBaseUrl = store.getEffectiveBaseUrl(tsconfig);
     if (!effectiveBaseUrl) {
-      throw new Error("Expected config searched for `paths` to have an effective `baseUrl`");
+      throw new Error("Expected config searched for `paths` problems to have an effective `baseUrl`");
     }
 
-    const paths = pathsProperty.initializer as ObjectLiteralExpression;
+    const effectivePaths = store.getEffectivePaths(tsconfig);
+    if (!effectivePaths) {
+      throw new Error("Expected config searched for `paths` problems to have `paths`");
+    }
 
     // Check each path mapping for non-relative paths
-    for (const pathMapping of paths.properties) {
+    for (const pathMapping of effectivePaths.value.properties) {
       if (pathMapping.kind !== SyntaxKind.PropertyAssignment) {
         continue;
       }
@@ -81,6 +85,7 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[]): NonRelativeP
         tsconfig,
         problematicPaths,
         effectiveBaseUrl,
+        effectivePaths,
       });
     }
   }

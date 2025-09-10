@@ -12,7 +12,7 @@ test("getNonRelativePathsFixes - project references fixture", () => {
   const tsconfigPath = resolve(__dirname, "fixtures", "project-references", "tsconfig.json");
   const configStore = new ConfigStore();
   configStore.loadProjects(tsconfigPath);
-  const problems = getNonRelativePathsProblems(configStore.getConfigs().all);
+  const problems = getNonRelativePathsProblems(configStore.getConfigs().containsPaths, configStore);
 
   // Should find 2 problems: tsconfig.base.json and server/tsconfig.json
   assert.equal(problems.length, 2);
@@ -105,7 +105,7 @@ test("fixNonRelativePathsProblem - sample project fixture", () => {
   const tsconfigPath = resolve(__dirname, "fixtures", "sample-project", "tsconfig.json");
   const configStore = new ConfigStore();
   configStore.loadProjects(tsconfigPath);
-  const problems = getNonRelativePathsProblems(configStore.getConfigs().all);
+  const problems = getNonRelativePathsProblems(configStore.getConfigs().containsPaths, configStore);
 
   // Should find 1 problem in the sample project
   assert.equal(problems.length, 1);

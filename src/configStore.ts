@@ -14,7 +14,7 @@ import {
   sys,
   type TsConfigSourceFile,
 } from "typescript";
-import type { EffectiveBaseUrl, ProjectTSConfig, TSConfig } from "./types.ts";
+import type { ConfigValue, ProjectTSConfig, TSConfig } from "./types.ts";
 import { getCanonicalFileName, isProjectTSConfig, toPath } from "./utils.ts";
 
 const diagnosticFormatHost: FormatDiagnosticsHost = {
@@ -37,7 +37,7 @@ const parseConfigHost: ParseConfigFileHost = {
 export interface Configs {
   tsconfigCount: number;
   projectCount: number;
-  all: TSConfig[];
+  containsPaths: TSConfig[];
   containsBaseUrl: TSConfig[];
   affectedProjects: ProjectTSConfig[];
 }
@@ -47,37 +47,29 @@ export class ConfigStore {
   extendedConfigCache = new Map<string, ExtendedConfigCacheEntry>();
 
   getConfigs(): Configs {
-    const allConfigs = new Map<string, TSConfig>();
-    const containsBaseUrl = new Set<TSConfig>();
+    const containsBaseUrl = new Map<string, TSConfig>();
+    const containsPaths = new Map<string, TSConfig>();
     const affectedProjects: ProjectTSConfig[] = [];
 
-    for (const [path, projectConfig] of this.projectConfigs.entries()) {
+    for (const projectConfig of this.projectConfigs.values()) {
       const effectiveBaseUrl = this.getEffectiveBaseUrl(projectConfig);
       if (effectiveBaseUrl) {
-        containsBaseUrl.add(effectiveBaseUrl.definedIn);
+        containsBaseUrl.set(toPath(effectiveBaseUrl.definedIn.fileName), effectiveBaseUrl.definedIn);
         affectedProjects.push(projectConfig);
-      }
-      allConfigs.set(path, projectConfig);
-    }
 
-    for (const [path, extendedConfig] of this.extendedConfigCache.entries()) {
-      if (!allConfigs.has(path)) {
-        const config: TSConfig = {
-          fileName: extendedConfig.extendedResult.fileName,
-          raw: extendedConfig.extendedConfig?.raw,
-          file: extendedConfig.extendedResult,
-        };
-        config.effectiveBaseUrl = this.getEffectiveBaseUrl(config);
-        allConfigs.set(path, config);
+        const effectivePaths = this.getEffectivePaths(projectConfig);
+        if (effectivePaths) {
+          containsPaths.set(toPath(effectivePaths.definedIn.fileName), effectivePaths.definedIn);
+        }
       }
     }
 
     return {
       tsconfigCount: this.extendedConfigCache.size + this.projectConfigs.size,
       projectCount: this.projectConfigs.size,
-      containsBaseUrl: Array.from(containsBaseUrl),
+      containsBaseUrl: Array.from(containsBaseUrl.values()),
+      containsPaths: Array.from(containsPaths.values()),
       affectedProjects,
-      all: Array.from(allConfigs.values()),
     };
   }
 
@@ -125,7 +117,7 @@ export class ConfigStore {
       ?.map((file) => this.extendedConfigCache.get(toPath(file)))
       .filter((e): e is ExtendedConfigCacheEntry => e != undefined)
       .map((e) => {
-        const projectConfig = this.projectConfigs.get(e.extendedResult.path);
+        const projectConfig = this.projectConfigs.get(toPath(e.extendedResult.fileName));
         if (projectConfig) {
           return projectConfig;
         }
@@ -137,7 +129,7 @@ export class ConfigStore {
       });
   }
 
-  getEffectiveBaseUrl(tsconfig: TSConfig): EffectiveBaseUrl | undefined {
+  getEffectiveBaseUrl(tsconfig: TSConfig): ConfigValue<StringLiteral> | undefined {
     if (tsconfig.effectiveBaseUrl !== undefined) {
       return tsconfig.effectiveBaseUrl || undefined;
     }
@@ -177,7 +169,7 @@ export class ConfigStore {
       if (baseUrlProperty.initializer.kind === SyntaxKind.StringLiteral) {
         const baseUrlLiteral = baseUrlProperty.initializer as StringLiteral;
         return tsconfig.effectiveBaseUrl = {
-          baseUrl: resolve(dirname(tsconfig.fileName), baseUrlLiteral.text),
+          value: baseUrlLiteral,
           definedIn: tsconfig,
         };
       }
@@ -200,6 +192,63 @@ export class ConfigStore {
     }
 
     tsconfig.effectiveBaseUrl = false;
+    return undefined;
+  }
+
+  getEffectivePaths(tsconfig: TSConfig): ConfigValue<ObjectLiteralExpression> | undefined {
+    if (tsconfig.effectivePaths !== undefined) {
+      return tsconfig.effectivePaths || undefined;
+    }
+
+    const rootExpression = tsconfig.file.statements[0]?.expression;
+    if (!rootExpression || rootExpression.kind !== SyntaxKind.ObjectLiteralExpression) {
+      tsconfig.effectivePaths = false;
+      return undefined;
+    }
+
+    const rootObject = rootExpression as ObjectLiteralExpression;
+    const compilerOptionsProperty = rootObject.properties.find(
+      (prop): prop is PropertyAssignment =>
+        prop.kind === SyntaxKind.PropertyAssignment
+        && prop.name?.kind === SyntaxKind.StringLiteral
+        && (prop.name as StringLiteral).text === "compilerOptions",
+    );
+
+    if (!compilerOptionsProperty || compilerOptionsProperty.initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
+      tsconfig.effectivePaths = false;
+      return undefined;
+    }
+
+    const compilerOptions = compilerOptionsProperty.initializer as ObjectLiteralExpression;
+    const pathsProperty = compilerOptions.properties.find(
+      (prop): prop is PropertyAssignment =>
+        prop.kind === SyntaxKind.PropertyAssignment
+        && prop.name?.kind === SyntaxKind.StringLiteral
+        && (prop.name as StringLiteral).text === "paths"
+        && prop.initializer.kind === SyntaxKind.ObjectLiteralExpression,
+    );
+
+    if (pathsProperty) {
+      return tsconfig.effectivePaths = {
+        value: pathsProperty.initializer as ObjectLiteralExpression,
+        definedIn: tsconfig,
+      };
+    }
+
+    const extendedConfigs = this.getExtendedConfigs(tsconfig);
+    if (!extendedConfigs) {
+      tsconfig.effectivePaths = false;
+      return undefined;
+    }
+    for (let i = extendedConfigs.length - 1; i >= 0; i--) {
+      const extendedConfig = extendedConfigs[i];
+      const extendedPaths = this.getEffectivePaths(extendedConfig);
+      if (extendedPaths !== undefined) {
+        return tsconfig.effectivePaths = extendedPaths;
+      }
+    }
+
+    tsconfig.effectivePaths = false;
     return undefined;
   }
 

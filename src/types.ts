@@ -1,4 +1,5 @@
 import type {
+  ObjectLiteralExpression,
   ParsedCommandLine,
   ResolvedModuleFull,
   StringLiteral,
@@ -6,8 +7,8 @@ import type {
   TsConfigSourceFile,
 } from "typescript";
 
-export interface EffectiveBaseUrl {
-  baseUrl: string;
+export interface ConfigValue<T> {
+  value: T;
   definedIn: TSConfig;
 }
 
@@ -15,7 +16,8 @@ export interface TSConfig {
   fileName: string;
   raw: any;
   file: TsConfigSourceFile;
-  effectiveBaseUrl?: EffectiveBaseUrl | false;
+  effectiveBaseUrl?: ConfigValue<StringLiteral> | false;
+  effectivePaths?: ConfigValue<ObjectLiteralExpression> | false;
 }
 
 export interface ProjectTSConfig extends TSConfig {
@@ -26,7 +28,8 @@ export interface ProjectTSConfig extends TSConfig {
 export interface NonRelativePathsProblem {
   kind: "NonRelativePaths";
   tsconfig: TSConfig;
-  effectiveBaseUrl: EffectiveBaseUrl;
+  effectiveBaseUrl: ConfigValue<StringLiteral>;
+  effectivePaths: ConfigValue<ObjectLiteralExpression>;
   problematicPaths: StringLiteral[];
 }
 

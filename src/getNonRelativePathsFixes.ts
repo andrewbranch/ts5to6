@@ -11,7 +11,8 @@ export function getNonRelativePathsFixes(problem: NonRelativePathsProblem): Text
     const currentPath = pathStringLiteral.text;
 
     // Resolve the absolute path that the non-relative path currently points to
-    const absoluteTargetPath = resolve(effectiveBaseUrl.baseUrl, currentPath);
+    const baseUrl = resolve(dirname(effectiveBaseUrl.definedIn.fileName), effectiveBaseUrl.value.text);
+    const absoluteTargetPath = resolve(baseUrl, currentPath);
 
     // Make it relative to the tsconfig directory
     const relativePath = relative(tsconfigDir, absoluteTargetPath);

@@ -64,9 +64,21 @@ export async function main(path: string) {
       }
     });
     logger.info(
+      `${logger.number(configs.containsPaths.length)} define ${logger.code("paths")}${
+        configs.containsPaths.length > 0 ? ":" : ""
+      }`,
+    );
+    if (configs.containsPaths.length > 0) {
+      logger.withIndent(() => {
+        for (const cfg of configs.containsPaths) {
+          logger.list([logger.file(relative(process.cwd(), cfg.fileName))]);
+        }
+      });
+    }
+    logger.info(
       `${logger.number(configs.affectedProjects.length)} project${
         configs.affectedProjects.length === 1 ? "" : "s"
-      } affected:`,
+      } potentially affected by ${logger.code("baseUrl")} change:`,
     );
     logger.withIndent(() => {
       for (const proj of configs.affectedProjects) {
@@ -76,7 +88,7 @@ export async function main(path: string) {
   }
 
   // Analyze path problems
-  const pathsProblems = getNonRelativePathsProblems(configs.all);
+  const pathsProblems = getNonRelativePathsProblems(configs.containsPaths, configStore);
 
   if (pathsProblems.length === 0) {
     logger.success("No non-relative path mappings found");
@@ -130,8 +142,6 @@ export async function main(path: string) {
       });
     }
   });
-
-  logger.info("Your TypeScript project has been successfully migrated!");
 }
 
 function parseTSConfigFile(filePath: string): TSConfig {

@@ -53,9 +53,9 @@ export async function main(path: string) {
   const configs = configStore.getConfigs();
   logger.info(`Found ${logger.number(configs.tsconfigCount)} tsconfig file${configs.tsconfigCount === 1 ? "" : "s"}`);
   logger.info(
-    `${logger.number(configs.containsBaseUrl.length)} define ${logger.code("baseUrl")}${
-      configs.containsBaseUrl.length > 0 ? ":" : ""
-    }`,
+    `${logger.number(configs.containsBaseUrl.length)} define${configs.containsBaseUrl.length === 1 ? "s" : ""} ${
+      logger.code("baseUrl")
+    }${configs.containsBaseUrl.length > 0 ? ":" : ""}`,
   );
   if (configs.containsBaseUrl.length > 0) {
     logger.withIndent(() => {
@@ -64,9 +64,9 @@ export async function main(path: string) {
       }
     });
     logger.info(
-      `${logger.number(configs.containsPaths.length)} define ${logger.code("paths")}${
-        configs.containsPaths.length > 0 ? ":" : ""
-      }`,
+      `${logger.number(configs.containsPaths.length)} define${configs.containsBaseUrl.length === 1 ? "s" : ""} ${
+        logger.code("paths")
+      }${configs.containsPaths.length > 0 ? ":" : ""}`,
     );
     if (configs.containsPaths.length > 0) {
       logger.withIndent(() => {

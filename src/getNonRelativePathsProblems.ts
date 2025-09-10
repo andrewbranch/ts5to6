@@ -6,7 +6,6 @@ import {
   SyntaxKind,
 } from "typescript";
 import type { NonRelativePathsProblem, TSConfig } from "./types.ts";
-import { getEffectiveBaseUrl } from "./utils.ts";
 
 export function getNonRelativePathsProblems(tsconfigs: TSConfig[]): NonRelativePathsProblem[] {
   const problems: NonRelativePathsProblem[] = [];
@@ -44,9 +43,9 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[]): NonRelativeP
       continue;
     }
 
-    const effectiveBaseUrl = getEffectiveBaseUrl(tsconfig);
+    const effectiveBaseUrl = tsconfig.effectiveBaseUrl;
     if (!effectiveBaseUrl) {
-      continue;
+      throw new Error("Expected config searched for `paths` to have an effective `baseUrl`");
     }
 
     const paths = pathsProperty.initializer as ObjectLiteralExpression;

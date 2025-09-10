@@ -1,11 +1,10 @@
+import { glob } from "glob";
 import { existsSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { parseConfigFileTextToJson, readJsonConfigFile } from "typescript";
-import { discoverRelatedTSConfigs } from "./discoverRelatedTSConfigs.ts";
-import { getAllTSConfigs } from "./getAllTSConfigs.ts";
+import { ConfigStore } from "./configStore.ts";
 import { getNonRelativePathsFixes } from "./getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "./getNonRelativePathsProblems.ts";
-import { getProjects } from "./getProjects.ts";
 import { logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
 import type { TextEdit, TSConfig } from "./types.ts";
@@ -39,28 +38,45 @@ export async function main(path: string) {
   logger.info(`Analyzing ${logger.file(relative(process.cwd(), tsconfigPath))}`);
 
   // Find projects and collect tsconfigs
-  const projects = getProjects(tsconfigPath);
-  const tsconfigs = getAllTSConfigs(projects);
+  const configStore = new ConfigStore();
+  configStore.loadProjects(tsconfigPath);
 
   // Discover any additional tsconfigs that extend files we're about to modify
   const workspaceRoot = findWorkspaceRoot(tsconfigPath);
-  const relatedTSConfigs = await discoverRelatedTSConfigs(tsconfigs, workspaceRoot);
-  const allTSConfigs = [...tsconfigs, ...relatedTSConfigs];
+  const globbedTsconfigPaths = await glob("**/tsconfig*.json", {
+    cwd: workspaceRoot,
+    ignore: ["**/node_modules/**"],
+    absolute: true,
+  });
+  configStore.addAffectedConfigsFromWorkspace(globbedTsconfigPaths);
 
-  if (allTSConfigs.length > 1) {
-    logger.info(`Found ${logger.number(allTSConfigs.length)} tsconfig files:`);
+  const configs = configStore.getConfigs();
+  logger.info(`Found ${logger.number(configs.tsconfigCount)} tsconfig file${configs.tsconfigCount === 1 ? "" : "s"}`);
+  logger.info(
+    `${logger.number(configs.containsBaseUrl.length)} define ${logger.code("baseUrl")}${
+      configs.containsBaseUrl.length > 0 ? ":" : ""
+    }`,
+  );
+  if (configs.containsBaseUrl.length > 0) {
     logger.withIndent(() => {
-      for (const tsconfig of allTSConfigs) {
-        const isAdditional = relatedTSConfigs.includes(tsconfig);
-        logger.info(
-          logger.file(relative(process.cwd(), tsconfig.fileName)) + (isAdditional ? " (extends base config)" : ""),
-        );
+      for (const cfg of configs.containsBaseUrl) {
+        logger.list([logger.file(relative(process.cwd(), cfg.fileName))]);
+      }
+    });
+    logger.info(
+      `${logger.number(configs.affectedProjects.length)} project${
+        configs.affectedProjects.length === 1 ? "" : "s"
+      } affected:`,
+    );
+    logger.withIndent(() => {
+      for (const proj of configs.affectedProjects) {
+        logger.list([logger.file(relative(process.cwd(), proj.fileName))]);
       }
     });
   }
 
   // Analyze path problems
-  const pathsProblems = getNonRelativePathsProblems(allTSConfigs);
+  const pathsProblems = getNonRelativePathsProblems(configs.all);
 
   if (pathsProblems.length === 0) {
     logger.success("No non-relative path mappings found");
@@ -74,7 +90,7 @@ export async function main(path: string) {
 
   // Generate and apply fixes
   const pathFixes = pathsProblems.flatMap(getNonRelativePathsFixes);
-  const baseUrlFixes = getRemoveBaseUrlEdits(allTSConfigs);
+  const baseUrlFixes = getRemoveBaseUrlEdits(configs.containsBaseUrl);
   const allFixes = [...pathFixes, ...baseUrlFixes];
 
   if (allFixes.length === 0) {

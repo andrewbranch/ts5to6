@@ -6,30 +6,33 @@ import type {
   TsConfigSourceFile,
 } from "typescript";
 
+export interface EffectiveBaseUrl {
+  baseUrl: string;
+  definedIn: TSConfig;
+}
+
 export interface TSConfig {
   fileName: string;
   raw: any;
   file: TsConfigSourceFile;
+  effectiveBaseUrl?: EffectiveBaseUrl | false;
 }
 
 export interface ProjectTSConfig extends TSConfig {
+  reason: "entry" | "referenced" | "affected";
   parsed: ParsedCommandLine;
-}
-
-export interface Project {
-  tsconfig: ProjectTSConfig;
 }
 
 export interface NonRelativePathsProblem {
   kind: "NonRelativePaths";
   tsconfig: TSConfig;
-  effectiveBaseUrl: string;
+  effectiveBaseUrl: EffectiveBaseUrl;
   problematicPaths: StringLiteral[];
 }
 
 export interface ResolutionUsesBaseUrlProblem {
   kind: "ResolutionUsesBaseUrl";
-  project: Project;
+  project: ProjectTSConfig;
   moduleSpecifier: StringLiteralLike;
   resolvedModule: ResolvedModuleFull;
 }

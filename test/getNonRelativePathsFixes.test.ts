@@ -2,18 +2,17 @@ import assert from "node:assert/strict";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { getAllTSConfigs } from "../src/getAllTSConfigs.ts";
+import { ConfigStore } from "../src/configStore.ts";
 import { getNonRelativePathsFixes } from "../src/getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "../src/getNonRelativePathsProblems.ts";
-import { getProjects } from "../src/getProjects.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 test("getNonRelativePathsFixes - project references fixture", () => {
   const tsconfigPath = resolve(__dirname, "fixtures", "project-references", "tsconfig.json");
-  const projects = getProjects(tsconfigPath);
-  const tsconfigs = getAllTSConfigs(projects);
-  const problems = getNonRelativePathsProblems(tsconfigs);
+  const configStore = new ConfigStore();
+  configStore.loadProjects(tsconfigPath);
+  const problems = getNonRelativePathsProblems(configStore.getConfigs().all);
 
   // Should find 2 problems: tsconfig.base.json and server/tsconfig.json
   assert.equal(problems.length, 2);
@@ -104,9 +103,9 @@ test("getNonRelativePathsFixes - project references fixture", () => {
 
 test("fixNonRelativePathsProblem - sample project fixture", () => {
   const tsconfigPath = resolve(__dirname, "fixtures", "sample-project", "tsconfig.json");
-  const projects = getProjects(tsconfigPath);
-  const tsconfigs = getAllTSConfigs(projects);
-  const problems = getNonRelativePathsProblems(tsconfigs);
+  const configStore = new ConfigStore();
+  configStore.loadProjects(tsconfigPath);
+  const problems = getNonRelativePathsProblems(configStore.getConfigs().all);
 
   // Should find 1 problem in the sample project
   assert.equal(problems.length, 1);

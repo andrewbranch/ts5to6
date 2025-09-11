@@ -1,6 +1,6 @@
 {
   "name": "@andrewbranch/ts-fix-baseurl",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "CLI to migrate TypeScript projects away from `baseUrl` usage",
   "license": "MIT",
   "author": "Andrew Branch",
@@ -16,7 +16,6 @@
     "cli": "node --experimental-strip-types ./src/cli.ts",
     "fmt": "dprint fmt",
     "fmt:check": "dprint check",
-    "postinstall": "patch-package",
     "prepare": "npm run build"
   },
   "engines": {

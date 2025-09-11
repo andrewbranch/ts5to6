@@ -4,6 +4,7 @@ import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { ConfigStore } from "./configStore.ts";
 import { getNonRelativePathsFixes } from "./getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "./getNonRelativePathsProblems.ts";
+import { getProjectsUsingBaseUrlForResolution } from "./getResolutionUsesBaseUrlProblems.ts";
 import { Logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
 import type { TextEdit } from "./types.ts";
@@ -126,6 +127,25 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
         pathsProblems.length === 1 ? "" : "s"
       }`,
     );
+  }
+
+  // Analyze which projects actually use baseUrl for module resolution
+  logger.step("Analyzing module resolution dependencies...");
+  const projectsUsingBaseUrl = getProjectsUsingBaseUrlForResolution(configs.affectedProjects);
+
+  if (projectsUsingBaseUrl.length === 0) {
+    logger.success("No projects rely on baseUrl for module resolution");
+  } else {
+    logger.warn(
+      `${logger.number(projectsUsingBaseUrl.length)} project${
+        projectsUsingBaseUrl.length === 1 ? "" : "s"
+      } rely on baseUrl for module resolution:`,
+    );
+    logger.withIndent(() => {
+      for (const project of projectsUsingBaseUrl) {
+        logger.list([logger.file(relative(process.cwd(), project.fileName))]);
+      }
+    });
   }
 
   // Generate and apply fixes

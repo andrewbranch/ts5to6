@@ -4,8 +4,6 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { parseConfigFileTextToJson, readJsonConfigFile } from "typescript";
 import { ConfigStore } from "../src/configStore.ts";
-import { getNonRelativePathsFixes } from "../src/getNonRelativePathsFixes.ts";
-import { getNonRelativePathsProblems } from "../src/getNonRelativePathsProblems.ts";
 import { getRemoveBaseUrlEdits } from "../src/removeBaseUrl.ts";
 import type { TSConfig } from "../src/types.ts";
 import { applyEdits, applyEditsToConfigs } from "./utils.ts";

@@ -1,11 +1,4 @@
-import type {
-  ExpressionStatement,
-  ObjectLiteralExpression,
-  PropertyAssignment,
-  SourceFile,
-  StringLiteral,
-  TsConfigSourceFile,
-} from "typescript";
+import type { ObjectLiteralExpression, PropertyAssignment, StringLiteral, TsConfigSourceFile } from "typescript";
 import { getTrailingCommentRanges, isWhiteSpaceLike, SyntaxKind } from "typescript";
 import type { TextEdit, TSConfig } from "./types.ts";
 

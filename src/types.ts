@@ -1,11 +1,4 @@
-import type {
-  ObjectLiteralExpression,
-  ParsedCommandLine,
-  ResolvedModuleFull,
-  StringLiteral,
-  StringLiteralLike,
-  TsConfigSourceFile,
-} from "typescript";
+import type { ObjectLiteralExpression, ParsedCommandLine, StringLiteral, TsConfigSourceFile } from "typescript";
 
 export interface ConfigValue<T> {
   value: T;
@@ -38,14 +31,7 @@ export interface NonRelativePathsProblem {
   problematicPaths: StringLiteral[];
 }
 
-export interface ResolutionUsesBaseUrlProblem {
-  kind: "ResolutionUsesBaseUrl";
-  project: ProjectTSConfig;
-  moduleSpecifier: StringLiteralLike;
-  resolvedModule: ResolvedModuleFull;
-}
-
-export type Problem = NonRelativePathsProblem | ResolutionUsesBaseUrlProblem;
+export type Problem = NonRelativePathsProblem;
 
 export interface TextEdit {
   fileName: string;

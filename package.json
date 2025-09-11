@@ -31,5 +31,8 @@
     "@types/node": "^24.3.1",
     "dprint": "^0.50.1",
     "ts-expose-internals": "^5.6.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

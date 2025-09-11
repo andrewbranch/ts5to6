@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { logger } from "./logger.ts";
-import { main } from "./main.ts";
+import fixBaseURL from "./main.ts";
 
 // Declarative option (flag) definition
 interface OptionDescriptor {
@@ -43,7 +43,7 @@ const rootCommand: CommandSpec = {
     if (positionals.length === 0) return printHelpAndReturn(0);
 
     try {
-      await main(positionals[0]);
+      await fixBaseURL(positionals[0]);
       return 0;
     } catch (error) {
       logger.error(`Failed to migrate project: ${error instanceof Error ? error.message : String(error)}`);

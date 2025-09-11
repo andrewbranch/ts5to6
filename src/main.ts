@@ -25,7 +25,7 @@ function findWorkspaceRoot(tsconfigPath: string): string {
   return dirname(tsconfigPath);
 }
 
-export async function main(path: string) {
+export default async function fixBaseURL(path: string) {
   logger.heading("TypeScript baseUrl Migration Tool");
 
   const tsconfigPath = resolveTsconfig(path);

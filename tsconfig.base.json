@@ -5,6 +5,7 @@
     "verbatimModuleSyntax": true,
     "types": ["node", "ts-expose-internals"],
     "rewriteRelativeImportExtensions": true,
-    "erasableSyntaxOnly": true
+    "erasableSyntaxOnly": true,
+    "composite": true
   }
 }

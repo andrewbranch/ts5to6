@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
-    "module": "node20",
-    "moduleResolution": "node16",
+    "module": "node18",
     "strict": true,
     "verbatimModuleSyntax": true,
     "types": ["node", "ts-expose-internals"],
-    "allowImportingTsExtensions": true
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true
   }
 }

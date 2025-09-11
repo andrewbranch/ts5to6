@@ -1,5 +1,5 @@
 {
-  "name": "ts-fix-baseurl",
+  "name": "@andrewbranch/ts-fix-baseurl",
   "version": "1.0.0",
   "description": "CLI to migrate TypeScript projects away from `baseUrl` usage",
   "license": "MIT",
@@ -19,7 +19,7 @@
     "postinstall": "patch-package"
   },
   "engines": {
-    "node": ">=22.6.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "chalk": "^5.6.0",

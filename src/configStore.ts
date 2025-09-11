@@ -73,6 +73,11 @@ export class ConfigStore {
     };
   }
 
+  getProjectConfig(fileName: string): TSConfig | undefined {
+    const path = toPath(fileName);
+    return this.projectConfigs.get(path);
+  }
+
   parseTsconfigIntoSourceFile(tsconfigPath: string, content: string): TsConfigSourceFile {
     return readJsonConfigFile(tsconfigPath, () => content);
   }
@@ -84,7 +89,7 @@ export class ConfigStore {
     const parsed = parseJsonSourceFileConfigFileContent(
       sourceFile,
       parseConfigHost,
-      sys.getCurrentDirectory(),
+      dirname(sourceFile.fileName),
       undefined,
       sourceFile.fileName,
       undefined,
@@ -258,10 +263,10 @@ export class ConfigStore {
         this.parseTsconfigIntoSourceFile(tsconfigPath, sys.readFile(tsconfigPath) ?? ""),
         reason,
       );
-      this.projectConfigs.set(tsconfigPath, tsconfig);
+      this.projectConfigs.set(toPath(tsconfigPath), tsconfig);
       tsconfig.parsed.projectReferences?.forEach(ref => {
         const resolvedPath = extname(ref.path) === ".json" ? ref.path : ref.path + "/tsconfig.json";
-        if (!this.projectConfigs.has(resolvedPath)) {
+        if (!this.projectConfigs.has(toPath(resolvedPath))) {
           collectReferences(resolvedPath, "referenced");
         }
       });

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { ConfigStore } from "../src/configStore.ts";
 import { getNonRelativePathsFixes } from "../src/getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "../src/getNonRelativePathsProblems.ts";
+import { applyEdits } from "./utils.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -145,4 +146,25 @@ test("fixNonRelativePathsProblem - sample project fixture", () => {
 
   assert.equal(utilsEdit.start, utilsValuePos, "Utils edit should target the array value position");
   assert.equal(utilsEdit.end, utilsValuePos + "\"utils/*\"".length, "Utils edit should end correctly");
+});
+
+test("getNonRelativePathsFixes - dot", () => {
+  const tsconfigPath = resolve(__dirname, "fixtures", "dot", "tsconfig.json");
+  const configStore = new ConfigStore();
+  configStore.loadProjects(tsconfigPath);
+  const problems = getNonRelativePathsProblems(configStore.getConfigs().containsPaths, configStore);
+  const fixes = problems.flatMap(getNonRelativePathsFixes);
+  const fixed = applyEdits(configStore.getProjectConfig(tsconfigPath)!.file.text, fixes);
+  assert.equal(
+    fixed,
+    `{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@@/*": ["./.tmp/*"]
+    }
+  }
+}
+`,
+  );
 });

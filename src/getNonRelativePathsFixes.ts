@@ -18,7 +18,9 @@ export function getNonRelativePathsFixes(problem: NonRelativePathsProblem): Text
     const relativePath = relative(tsconfigDir, absoluteTargetPath);
 
     // Ensure it starts with ./ if it's not already relative
-    const normalizedRelativePath = normalizeSlashes(relativePath.startsWith(".") ? relativePath : `./${relativePath}`);
+    const normalizedRelativePath = normalizeSlashes(
+      relativePath.startsWith("./") || relativePath.startsWith("../") ? relativePath : `./${relativePath}`,
+    );
 
     edits.push({
       fileName: tsconfig.fileName,

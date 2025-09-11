@@ -10,7 +10,7 @@
   },
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -b src/tsconfig.json",
+    "build": "tsc -b tsconfig.json",
     "test": "node --experimental-strip-types --test ./test/**/*.test.ts",
     "test:watch": "node --experimental-strip-types --test --watch ./test/**/*.test.ts",
     "cli": "node --experimental-strip-types ./src/cli.ts",

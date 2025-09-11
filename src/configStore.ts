@@ -52,9 +52,11 @@ export class ConfigStore {
     const affectedProjects: ProjectTSConfig[] = [];
 
     for (const projectConfig of this.projectConfigs.values()) {
-      const effectiveBaseUrl = this.getEffectiveBaseUrl(projectConfig);
-      if (effectiveBaseUrl) {
-        containsBaseUrl.set(toPath(effectiveBaseUrl.definedIn.fileName), effectiveBaseUrl.definedIn);
+      const effectiveBaseUrlStack = this.getEffectiveBaseUrlStack(projectConfig);
+      if (effectiveBaseUrlStack) {
+        for (const effectiveBaseUrl of effectiveBaseUrlStack) {
+          containsBaseUrl.set(toPath(effectiveBaseUrl.definedIn.fileName), effectiveBaseUrl.definedIn);
+        }
         affectedProjects.push(projectConfig);
 
         const effectivePaths = this.getEffectivePaths(projectConfig);
@@ -134,9 +136,9 @@ export class ConfigStore {
       });
   }
 
-  getEffectiveBaseUrl(tsconfig: TSConfig): ConfigValue<StringLiteral> | undefined {
-    if (tsconfig.effectiveBaseUrl !== undefined) {
-      return tsconfig.effectiveBaseUrl || undefined;
+  getEffectiveBaseUrlStack(tsconfig: TSConfig): ConfigValue<StringLiteral>[] | undefined {
+    if (tsconfig.effectiveBaseUrlStack !== undefined) {
+      return tsconfig.effectiveBaseUrlStack || undefined;
     }
 
     if (isProjectTSConfig(tsconfig) && tsconfig.parsed.options.baseUrl === undefined) {
@@ -145,7 +147,7 @@ export class ConfigStore {
 
     const rootExpression = tsconfig.file.statements[0]?.expression;
     if (!rootExpression || rootExpression.kind !== SyntaxKind.ObjectLiteralExpression) {
-      tsconfig.effectiveBaseUrl = false;
+      tsconfig.effectiveBaseUrlStack = false;
       return undefined;
     }
 
@@ -158,7 +160,7 @@ export class ConfigStore {
     );
 
     if (!compilerOptionsProperty || compilerOptionsProperty.initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
-      tsconfig.effectiveBaseUrl = false;
+      tsconfig.effectiveBaseUrlStack = false;
       return undefined;
     }
 
@@ -170,34 +172,35 @@ export class ConfigStore {
         && (prop.name as StringLiteral).text === "baseUrl",
     );
 
-    if (baseUrlProperty) {
-      if (baseUrlProperty.initializer.kind === SyntaxKind.StringLiteral) {
-        const baseUrlLiteral = baseUrlProperty.initializer as StringLiteral;
-        return tsconfig.effectiveBaseUrl = {
-          value: baseUrlLiteral,
-          definedIn: tsconfig,
-        };
-      }
-      tsconfig.effectiveBaseUrl = false;
-      return undefined;
+    let ownValue: ConfigValue<StringLiteral> | undefined;
+    if (baseUrlProperty?.initializer.kind === SyntaxKind.StringLiteral) {
+      const baseUrlLiteral = baseUrlProperty.initializer as StringLiteral;
+      ownValue = {
+        value: baseUrlLiteral,
+        definedIn: tsconfig,
+      };
     }
 
+    let extendedStack: ConfigValue<StringLiteral>[] | undefined;
     const extendedConfigs = this.getExtendedConfigs(tsconfig);
-    if (!extendedConfigs) {
-      tsconfig.effectiveBaseUrl = false;
-      return undefined;
-    }
-
-    for (let i = extendedConfigs.length - 1; i >= 0; i--) {
-      const extendedConfig = extendedConfigs[i];
-      const extendedBaseUrl = this.getEffectiveBaseUrl(extendedConfig);
-      if (extendedBaseUrl !== undefined) {
-        return tsconfig.effectiveBaseUrl = extendedBaseUrl;
+    if (extendedConfigs) {
+      for (let i = extendedConfigs.length - 1; i >= 0; i--) {
+        const extendedConfig = extendedConfigs[i];
+        const extendedBaseUrlStack = this.getEffectiveBaseUrlStack(extendedConfig);
+        if (extendedBaseUrlStack) {
+          (extendedStack ??= []).push(...extendedBaseUrlStack);
+        }
       }
     }
 
-    tsconfig.effectiveBaseUrl = false;
-    return undefined;
+    const stack = ownValue ? [ownValue, ...(extendedStack ?? [])] : extendedStack;
+    if (stack) {
+      tsconfig.effectiveBaseUrlStack = stack;
+      return stack;
+    } else {
+      tsconfig.effectiveBaseUrlStack = false;
+      return undefined;
+    }
   }
 
   getEffectivePaths(tsconfig: TSConfig): ConfigValue<ObjectLiteralExpression> | undefined {
@@ -311,11 +314,11 @@ export class ConfigStore {
         continue;
       }
 
-      const effectiveBaseUrl = this.getEffectiveBaseUrl(candidate);
+      const effectiveBaseUrl = this.getEffectiveBaseUrlStack(candidate);
       if (
         effectiveBaseUrl
-        && (this.projectConfigs.has(toPath(effectiveBaseUrl.definedIn.fileName))
-          || originalExtendedConfigCache.has(toPath(effectiveBaseUrl.definedIn.fileName)))
+        && (this.projectConfigs.has(toPath(effectiveBaseUrl[0].definedIn.fileName))
+          || originalExtendedConfigCache.has(toPath(effectiveBaseUrl[0].definedIn.fileName)))
       ) {
         toAdd.set(toPath(candidate.fileName), candidate);
       }

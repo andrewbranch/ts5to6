@@ -18,13 +18,29 @@ export function getRemoveBaseUrlEdits(tsconfigs: TSConfig[]): TextEdit[] {
   const edits: TextEdit[] = [];
 
   for (const tsconfig of tsconfigs) {
-    const baseUrlEdits = getBaseUrlRemovalEdits(tsconfig);
+    if (tsconfig.fileName.includes("/node_modules/")) {
+      // Don't modify tsconfigs in node_modules
+      continue;
+    }
+
+    const baseUrlEdits = firstExtendedConfigIsInNodeModules(tsconfig)
+      ? getBaseUrlNullificationEdits(tsconfig)
+      : getBaseUrlRemovalEdits(tsconfig);
     if (baseUrlEdits) {
       edits.push(...baseUrlEdits);
     }
   }
 
   return edits;
+}
+
+function firstExtendedConfigIsInNodeModules(tsconfig: TSConfig): boolean {
+  if (!tsconfig.effectiveBaseUrlStack) {
+    return false;
+  }
+  return tsconfig.effectiveBaseUrlStack[0].definedIn === tsconfig
+      && tsconfig.effectiveBaseUrlStack[1]?.definedIn.fileName.includes("/node_modules/")
+    || tsconfig.effectiveBaseUrlStack[0].definedIn.fileName.includes("/node_modules/");
 }
 
 /**
@@ -49,25 +65,101 @@ function getBaseUrlRemovalEdits(tsconfig: TSConfig): TextEdit[] | undefined {
   return calculateRemovalRanges(baseUrlProperty, compilerOptionsObject, sourceFile);
 }
 
+function getBaseUrlNullificationEdits(tsconfig: TSConfig): TextEdit[] | undefined {
+  const sourceFile = tsconfig.file;
+  if (tsconfig.effectiveBaseUrlStack && tsconfig.effectiveBaseUrlStack[0].definedIn === tsconfig) {
+    const stringLiteral = tsconfig.effectiveBaseUrlStack[0].value;
+    return [{
+      fileName: sourceFile.fileName,
+      newText: "null",
+      start: stringLiteral.getStart(sourceFile),
+      end: stringLiteral.getEnd(),
+    }];
+  }
+
+  const rootExpression = sourceFile.statements[0]?.expression as ObjectLiteralExpression | undefined;
+  const compilerOptionsObject = findCompilerOptionsProperty(sourceFile);
+  if (!compilerOptionsObject) {
+    if (!rootExpression) {
+      return undefined;
+    }
+
+    const lastProperty = rootExpression.properties[rootExpression.properties.length - 1];
+    if (!lastProperty) {
+      // Not possible; this config definitely extends something
+      return undefined;
+    }
+
+    const edits: TextEdit[] = [];
+    if (!rootExpression.properties.hasTrailingComma) {
+      // We need to add a comma to the last property to add a new one
+      edits.push({
+        fileName: sourceFile.fileName,
+        newText: ",",
+        start: lastProperty.getEnd(),
+        end: lastProperty.getEnd(),
+      });
+    }
+    const trailingComments = getTrailingCommentRanges(sourceFile.getFullText(), lastProperty.getEnd());
+    const end = trailingComments ? trailingComments[trailingComments.length - 1].end : lastProperty.getEnd();
+    const indent = lastProperty.getFullText().match(/^\s*/)?.[0] || "";
+    edits.push({
+      fileName: sourceFile.fileName,
+      newText: `\n"${indent}"compilerOptions": {\n${indent.repeat(2)}"baseUrl": null${
+        rootExpression.properties.hasTrailingComma ? "," : ""
+      }\n${indent}}${rootExpression.properties.hasTrailingComma ? "," : ""}`,
+      start: end,
+      end: end,
+    });
+    return edits;
+  }
+
+  const lastProperty = compilerOptionsObject.properties[compilerOptionsObject.properties.length - 1];
+  if (!lastProperty) {
+    return [{
+      fileName: sourceFile.fileName,
+      newText: `{ "baseUrl": null }${rootExpression?.properties.hasTrailingComma ? "," : ""}`,
+      start: compilerOptionsObject.getStart(sourceFile),
+      end: compilerOptionsObject.getEnd(),
+    }];
+  }
+
+  const edits: TextEdit[] = [];
+  if (!compilerOptionsObject.properties.hasTrailingComma) {
+    // We need to add a comma to the last property to add a new one
+    edits.push({
+      fileName: sourceFile.fileName,
+      newText: ",",
+      start: lastProperty.getEnd(),
+      end: lastProperty.getEnd(),
+    });
+  }
+  const trailingComments = getTrailingCommentRanges(sourceFile.getFullText(), lastProperty.getEnd());
+  const end = trailingComments ? trailingComments[trailingComments.length - 1].end : lastProperty.getEnd();
+  const indent = lastProperty.getFullText().match(/^\s*/)?.[0] || "";
+  edits.push({
+    fileName: sourceFile.fileName,
+    newText: `\n${indent}"baseUrl": null${compilerOptionsObject.properties.hasTrailingComma ? "," : ""}`,
+    start: end,
+    end: end,
+  });
+  return edits;
+}
+
 /**
  * Finds the compilerOptions property in the root object of the tsconfig.
  */
-function findCompilerOptionsProperty(sourceFile: SourceFile): ObjectLiteralExpression | undefined {
+function findCompilerOptionsProperty(sourceFile: TsConfigSourceFile): ObjectLiteralExpression | undefined {
   // Navigate through the AST to find compilerOptions
-  for (const statement of sourceFile.statements) {
-    if (statement.kind === SyntaxKind.ExpressionStatement) {
-      const expressionStatement = statement as ExpressionStatement;
-      const expression = expressionStatement.expression;
-      if (expression.kind === SyntaxKind.ObjectLiteralExpression) {
-        const objectLiteral = expression as ObjectLiteralExpression;
-        for (const property of objectLiteral.properties) {
-          if (property.kind === SyntaxKind.PropertyAssignment) {
-            const propertyAssignment = property as PropertyAssignment;
-            const name = propertyAssignment.name;
-            if (name.kind === SyntaxKind.StringLiteral && (name as StringLiteral).text === "compilerOptions") {
-              return propertyAssignment.initializer as ObjectLiteralExpression;
-            }
-          }
+  const expression = sourceFile.statements[0]?.expression;
+  if (expression?.kind === SyntaxKind.ObjectLiteralExpression) {
+    const objectLiteral = expression as ObjectLiteralExpression;
+    for (const property of objectLiteral.properties) {
+      if (property.kind === SyntaxKind.PropertyAssignment) {
+        const propertyAssignment = property as PropertyAssignment;
+        const name = propertyAssignment.name;
+        if (name.kind === SyntaxKind.StringLiteral && (name as StringLiteral).text === "compilerOptions") {
+          return propertyAssignment.initializer as ObjectLiteralExpression;
         }
       }
     }

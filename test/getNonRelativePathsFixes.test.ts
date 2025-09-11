@@ -168,3 +168,11 @@ test("getNonRelativePathsFixes - dot", () => {
 `,
   );
 });
+
+test("getNonRelativePathsFixes - multiple baseUrl fixture", () => {
+  const tsconfigPath = resolve(__dirname, "fixtures", "multiple-baseurl", "tsconfig.json");
+  const configStore = new ConfigStore();
+  configStore.loadProjects(tsconfigPath);
+  const problems = getNonRelativePathsProblems(configStore.getConfigs().containsPaths, configStore);
+  const fixes = problems.flatMap(getNonRelativePathsFixes);
+});

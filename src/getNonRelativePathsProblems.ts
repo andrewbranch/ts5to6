@@ -44,7 +44,7 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: Config
       continue;
     }
 
-    const effectiveBaseUrl = store.getEffectiveBaseUrl(tsconfig);
+    const effectiveBaseUrl = store.getEffectiveBaseUrlStack(tsconfig);
     if (!effectiveBaseUrl) {
       throw new Error("Expected config searched for `paths` problems to have an effective `baseUrl`");
     }

@@ -16,7 +16,12 @@ export interface TSConfig {
   fileName: string;
   raw: any;
   file: TsConfigSourceFile;
-  effectiveBaseUrl?: ConfigValue<StringLiteral> | false;
+  /**
+   * The stack of `baseUrl` values that affect this config. The first item is the
+   * one currently taking effect, and each consecutive item is the next one that
+   * will take effect if the previous one is removed.
+   */
+  effectiveBaseUrlStack?: ConfigValue<StringLiteral>[] | false;
   effectivePaths?: ConfigValue<ObjectLiteralExpression> | false;
 }
 

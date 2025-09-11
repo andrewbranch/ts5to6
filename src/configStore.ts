@@ -3,6 +3,7 @@ import {
   type ExtendedConfigCacheEntry,
   formatDiagnostic,
   type FormatDiagnosticsHost,
+  nodeNextJsonConfigResolver,
   type ObjectLiteralExpression,
   type ParseConfigFileHost,
   parseConfigFileTextToJson,
@@ -80,6 +81,18 @@ export class ConfigStore {
     return this.projectConfigs.get(path);
   }
 
+  getText(fileName: string): string | undefined {
+    const config = this.getProjectConfig(fileName);
+    if (config) {
+      return config.file.text;
+    }
+    const extended = this.extendedConfigCache.get(toPath(fileName));
+    if (extended) {
+      return extended.extendedResult.text;
+    }
+    return undefined;
+  }
+
   parseTsconfigIntoSourceFile(tsconfigPath: string, content: string): TsConfigSourceFile {
     return readJsonConfigFile(tsconfigPath, () => content);
   }
@@ -120,20 +133,42 @@ export class ConfigStore {
   }
 
   getExtendedConfigs(tsconfig: TSConfig): TSConfig[] | undefined {
-    return tsconfig.file.extendedSourceFiles
-      ?.map((file) => this.extendedConfigCache.get(toPath(file)))
-      .filter((e): e is ExtendedConfigCacheEntry => e != undefined)
-      .map((e) => {
-        const projectConfig = this.projectConfigs.get(toPath(e.extendedResult.fileName));
+    // We do resolution ourselves because the TS API doesn't expose a convenient way
+    // to get the extended configs in a structured/ordered way.
+    const resolve = (ref: string): TSConfig | undefined => {
+      const resolved = nodeNextJsonConfigResolver(ref, tsconfig.fileName, sys);
+      if (resolved.resolvedModule?.resolvedFileName) {
+        const path = toPath(resolved.resolvedModule.resolvedFileName);
+        const projectConfig = this.projectConfigs.get(path);
         if (projectConfig) {
           return projectConfig;
         }
-        return {
-          fileName: e.extendedResult.fileName,
-          raw: e.extendedConfig?.raw,
-          file: e.extendedResult,
-        };
-      });
+        const extendedConfig = this.extendedConfigCache.get(path);
+        if (extendedConfig) {
+          return {
+            fileName: resolved.resolvedModule.resolvedFileName,
+            raw: extendedConfig.extendedConfig?.raw,
+            file: extendedConfig.extendedResult,
+          };
+        }
+      }
+    };
+
+    if (tsconfig.raw.extends && Array.isArray(tsconfig.raw.extends)) {
+      return tsconfig.raw.extends.map((ref: unknown) => {
+        if (typeof ref !== "string") {
+          return undefined;
+        }
+        return resolve(ref);
+      }).filter((e: TSConfig | undefined): e is TSConfig => e !== undefined);
+    }
+    if (typeof tsconfig.raw.extends === "string") {
+      const resolved = resolve(tsconfig.raw.extends);
+      if (resolved) {
+        return [resolved];
+      }
+    }
+    return undefined;
   }
 
   getEffectiveBaseUrlStack(tsconfig: TSConfig): ConfigValue<StringLiteral>[] | undefined {
@@ -188,7 +223,13 @@ export class ConfigStore {
         const extendedConfig = extendedConfigs[i];
         const extendedBaseUrlStack = this.getEffectiveBaseUrlStack(extendedConfig);
         if (extendedBaseUrlStack) {
-          (extendedStack ??= []).push(...extendedBaseUrlStack);
+          const seen = new Set<string>();
+          for (const entry of extendedBaseUrlStack) {
+            if (!seen.has(entry.definedIn.fileName)) {
+              (extendedStack ??= []).push(entry);
+              seen.add(entry.definedIn.fileName);
+            }
+          }
         }
       }
     }

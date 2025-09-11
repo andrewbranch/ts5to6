@@ -84,7 +84,7 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: Config
         kind: "NonRelativePaths",
         tsconfig,
         problematicPaths,
-        effectiveBaseUrl,
+        effectiveBaseUrl: effectiveBaseUrl[0],
         effectivePaths,
       });
     }

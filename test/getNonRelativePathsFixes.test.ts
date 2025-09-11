@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { ConfigStore } from "../src/configStore.ts";
 import { getNonRelativePathsFixes } from "../src/getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "../src/getNonRelativePathsProblems.ts";
-import { applyEdits } from "./utils.ts";
+import { applyEdits, applyEditsToConfigs } from "./utils.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -167,12 +167,4 @@ test("getNonRelativePathsFixes - dot", () => {
 }
 `,
   );
-});
-
-test("getNonRelativePathsFixes - multiple baseUrl fixture", () => {
-  const tsconfigPath = resolve(__dirname, "fixtures", "multiple-baseurl", "tsconfig.json");
-  const configStore = new ConfigStore();
-  configStore.loadProjects(tsconfigPath);
-  const problems = getNonRelativePathsProblems(configStore.getConfigs().containsPaths, configStore);
-  const fixes = problems.flatMap(getNonRelativePathsFixes);
 });

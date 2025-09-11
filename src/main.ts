@@ -25,6 +25,35 @@ function findWorkspaceRoot(tsconfigPath: string): string {
 }
 
 export default async function fixBaseURL(path: string, writeLn?: (msg: any) => void): Promise<void> {
+  const { logger, tsconfigPath, workspaceRoot } = setup(path, writeLn);
+
+  // Discover any additional tsconfigs that extend files we're about to modify
+  const globbedTsconfigPaths = await glob("**/tsconfig*.json", {
+    cwd: workspaceRoot,
+    ignore: ["**/node_modules/**"],
+    absolute: true,
+  });
+
+  fixBaseURLWorker(tsconfigPath, globbedTsconfigPaths, logger);
+}
+
+export function fixBaseURLSync(path: string, writeLn?: (msg: any) => void): void {
+  const { logger, tsconfigPath, workspaceRoot } = setup(path, writeLn);
+
+  // Discover any additional tsconfigs that extend files we're about to modify
+  const globbedTsconfigPaths = glob.sync("**/tsconfig*.json", {
+    cwd: workspaceRoot,
+    ignore: ["**/node_modules/**"],
+    absolute: true,
+  });
+
+  fixBaseURLWorker(tsconfigPath, globbedTsconfigPaths, logger);
+}
+
+function setup(
+  path: string,
+  writeLn?: (msg: any) => void,
+): { logger: Logger; tsconfigPath: string; workspaceRoot: string } {
   const logger = new Logger(writeLn || (msg => console.log(msg)));
   logger.heading("TypeScript baseUrl Migration Tool");
 
@@ -37,17 +66,16 @@ export default async function fixBaseURL(path: string, writeLn?: (msg: any) => v
 
   logger.info(`Analyzing ${logger.file(relative(process.cwd(), tsconfigPath))}`);
 
+  const workspaceRoot = findWorkspaceRoot(tsconfigPath);
+
+  return { logger, tsconfigPath, workspaceRoot };
+}
+
+function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], logger: Logger): void {
   // Find projects and collect tsconfigs
   const configStore = new ConfigStore();
   configStore.loadProjects(tsconfigPath);
 
-  // Discover any additional tsconfigs that extend files we're about to modify
-  const workspaceRoot = findWorkspaceRoot(tsconfigPath);
-  const globbedTsconfigPaths = await glob("**/tsconfig*.json", {
-    cwd: workspaceRoot,
-    ignore: ["**/node_modules/**"],
-    absolute: true,
-  });
   configStore.addAffectedConfigsFromWorkspace(globbedTsconfigPaths);
 
   const configs = configStore.getConfigs();

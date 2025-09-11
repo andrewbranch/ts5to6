@@ -5,41 +5,44 @@ import chalk from "chalk";
  */
 export class Logger {
   private indent = 0;
+  private writeLn: (msg: any) => void;
+
+  constructor(write: (msg: any) => void) {
+    this.writeLn = write;
+  }
 
   info(message: string): void {
-    console.log(this.getIndent() + chalk.blue("ℹ") + " " + message);
+    this.writeLn(this.getIndent() + chalk.blue("ℹ") + " " + message);
   }
 
   success(message: string): void {
-    console.log(this.getIndent() + chalk.green("✓") + " " + message);
+    this.writeLn(this.getIndent() + chalk.green("✓") + " " + message);
   }
 
   warn(message: string): void {
-    console.log(this.getIndent() + chalk.yellow("⚠") + " " + message);
+    this.writeLn(this.getIndent() + chalk.yellow("⚠") + " " + message);
   }
 
   error(message: string): void {
-    console.error(this.getIndent() + chalk.red("✗") + " " + message);
+    this.writeLn(this.getIndent() + chalk.red("✗") + " " + message);
   }
 
   step(message: string): void {
-    console.log(this.getIndent() + chalk.cyan("→") + " " + message);
+    this.writeLn(this.getIndent() + chalk.cyan("→") + " " + message);
   }
 
   heading(message: string): void {
-    console.log();
-    console.log(chalk.bold.blue(message));
-    console.log(chalk.blue("=".repeat(message.length)));
+    this.writeLn("\n" + chalk.bold.blue(message));
+    this.writeLn(chalk.blue("=".repeat(message.length)));
   }
 
   subheading(message: string): void {
-    console.log();
-    console.log(chalk.bold(message));
+    this.writeLn("\n" + chalk.bold(message));
   }
 
   list(items: string[]): void {
     for (const item of items) {
-      console.log(this.getIndent() + "  • " + item);
+      this.writeLn(this.getIndent() + "  • " + item);
     }
   }
 
@@ -68,5 +71,3 @@ export class Logger {
     return " ".repeat(this.indent);
   }
 }
-
-export const logger = new Logger();

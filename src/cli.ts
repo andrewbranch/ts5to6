@@ -4,7 +4,7 @@ import chalk from "chalk";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { logger } from "./logger.ts";
+import { Logger } from "./logger.ts";
 import fixBaseURL from "./main.ts";
 
 // Declarative option (flag) definition
@@ -46,7 +46,9 @@ const rootCommand: CommandSpec = {
       await fixBaseURL(positionals[0]);
       return 0;
     } catch (error) {
-      logger.error(`Failed to migrate project: ${error instanceof Error ? error.message : String(error)}`);
+      new Logger((msg) => console.log(msg)).error(
+        `Failed to migrate project: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return 1;
     }
   },

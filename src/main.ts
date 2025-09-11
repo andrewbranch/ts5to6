@@ -1,13 +1,12 @@
 import { glob } from "glob";
 import { existsSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
-import { parseConfigFileTextToJson, readJsonConfigFile } from "typescript";
 import { ConfigStore } from "./configStore.ts";
 import { getNonRelativePathsFixes } from "./getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "./getNonRelativePathsProblems.ts";
-import { logger } from "./logger.ts";
+import { Logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
-import type { TextEdit, TSConfig } from "./types.ts";
+import type { TextEdit } from "./types.ts";
 import { writeFixes } from "./writeFixes.ts";
 
 function findWorkspaceRoot(tsconfigPath: string): string {
@@ -25,7 +24,8 @@ function findWorkspaceRoot(tsconfigPath: string): string {
   return dirname(tsconfigPath);
 }
 
-export default async function fixBaseURL(path: string) {
+export default async function fixBaseURL(path: string, writeLn?: (msg: any) => void): Promise<void> {
+  const logger = new Logger(writeLn || (msg => console.log(msg)));
   logger.heading("TypeScript baseUrl Migration Tool");
 
   const tsconfigPath = resolveTsconfig(path);
@@ -142,26 +142,6 @@ export default async function fixBaseURL(path: string) {
       });
     }
   });
-}
-
-function parseTSConfigFile(filePath: string): TSConfig {
-  const file = readJsonConfigFile(filePath, (path) => {
-    if (!existsSync(path)) {
-      throw new Error(`File not found: ${path}`);
-    }
-    return require("node:fs").readFileSync(path, "utf-8");
-  });
-
-  const json = parseConfigFileTextToJson(filePath, file.text);
-  if (json.error) {
-    throw new Error(`Could not parse tsconfig JSON: ${json.error.messageText}`);
-  }
-
-  return {
-    fileName: filePath,
-    raw: json.config,
-    file,
-  };
 }
 
 function resolveTsconfig(path: string) {

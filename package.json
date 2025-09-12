@@ -19,8 +19,7 @@
     "cli": "node --experimental-strip-types ./src/cli.ts",
     "fmt": "dprint fmt",
     "fmt:check": "dprint check",
-    "prepare": "npm run build",
-    "postinstall": "patch-package"
+    "prepare": "npm run build"
   },
   "engines": {
     "node": ">=20.19.0"

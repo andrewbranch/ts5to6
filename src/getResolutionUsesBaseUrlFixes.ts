@@ -9,7 +9,7 @@ import {
   SyntaxKind,
   getTrailingCommentRanges,
   isWhiteSpaceLike,
-} from "typescript";
+} from "#typescript";
 import { findCompilerOptionsProperty, insertPropertyIntoObject } from "./utils.ts";
 
 /**

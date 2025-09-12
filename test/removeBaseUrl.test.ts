@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseConfigFileTextToJson, readJsonConfigFile } from "typescript";
+import { parseConfigFileTextToJson, readJsonConfigFile } from "#typescript";
 import { ConfigStore } from "../src/configStore.ts";
 import { getRemoveBaseUrlEdits } from "../src/removeBaseUrl.ts";
 import type { TSConfig } from "../src/types.ts";

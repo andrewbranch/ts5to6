@@ -1,4 +1,4 @@
-import { createProgram } from "typescript";
+import { createProgram } from "#typescript";
 import type { ProjectTSConfig } from "./types.ts";
 
 /**

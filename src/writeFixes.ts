@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import type { TextEdit } from "./types.ts";
-import { toSorted } from "typescript";
+import { toSorted } from "#typescript";
 
 /**
  * Applies an array of text edits to their respective files on disk.

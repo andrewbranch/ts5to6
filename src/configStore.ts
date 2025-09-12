@@ -14,7 +14,7 @@ import {
   SyntaxKind,
   sys,
   type TsConfigSourceFile,
-} from "typescript";
+} from "#typescript";
 import type { ConfigValue, ProjectTSConfig, TSConfig } from "./types.ts";
 import { getCanonicalFileName, isProjectTSConfig, toPath } from "./utils.ts";
 

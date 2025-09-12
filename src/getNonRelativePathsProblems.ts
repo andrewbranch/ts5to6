@@ -4,7 +4,7 @@ import {
   type PropertyAssignment,
   type StringLiteral,
   SyntaxKind,
-} from "typescript";
+} from "#typescript";
 import type { ConfigStore } from "./configStore.ts";
 import type { NonRelativePathsProblem, TSConfig } from "./types.ts";
 import { findCompilerOptionsProperty } from "./utils.ts";

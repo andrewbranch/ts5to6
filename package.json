@@ -9,6 +9,12 @@
     "ts-fix-baseurl": "dist/cli.js"
   },
   "main": "dist/main.js",
+  "imports": {
+    "#typescript": {
+      "types": "typescript",
+      "default": "./vendor/typescript/typescript.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "test": "node --experimental-strip-types --test ./test/**/*.test.ts",
@@ -24,14 +30,13 @@
   },
   "dependencies": {
     "chalk": "^5.6.0",
-    "glob": "^11.0.3",
-    "patch-package": "^8.0.0",
-    "typescript": "5.9.2"
+    "glob": "^11.0.3"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",
     "dprint": "^0.50.1",
-    "ts-expose-internals": "^5.6.3"
+    "ts-expose-internals": "^5.6.3",
+    "typescript": "^5.9.2"
   },
   "publishConfig": {
     "access": "public"

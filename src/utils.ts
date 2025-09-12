@@ -5,7 +5,7 @@ import ts, {
   type StringLiteral,
   SyntaxKind,
   type TsConfigSourceFile
-} from "typescript";
+} from "#typescript";
 import type { ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
 
 export const getCanonicalFileName = ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames);

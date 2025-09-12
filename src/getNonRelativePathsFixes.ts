@@ -1,5 +1,5 @@
 import { dirname, relative, resolve } from "node:path";
-import { normalizeSlashes } from "typescript";
+import { normalizeSlashes } from "#typescript";
 import type { NonRelativePathsProblem, TextEdit } from "./types.ts";
 
 export function getNonRelativePathsFixes(problem: NonRelativePathsProblem): TextEdit[] {

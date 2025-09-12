@@ -1,5 +1,5 @@
-import type { ObjectLiteralExpression, PropertyAssignment, StringLiteral, TsConfigSourceFile } from "typescript";
-import { getTrailingCommentRanges, isWhiteSpaceLike, SyntaxKind } from "typescript";
+import type { ObjectLiteralExpression, PropertyAssignment, StringLiteral, TsConfigSourceFile } from "#typescript";
+import { getTrailingCommentRanges, isWhiteSpaceLike, SyntaxKind } from "#typescript";
 import type { TextEdit, TSConfig } from "./types.ts";
 import { findCompilerOptionsProperty, insertPropertyIntoObject } from "./utils.ts";
 

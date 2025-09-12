@@ -1,4 +1,4 @@
-import { toSorted } from "typescript";
+import { toSorted } from "#typescript";
 import type { ConfigStore } from "../src/configStore.ts";
 import type { TextEdit } from "../src/types.ts";
 

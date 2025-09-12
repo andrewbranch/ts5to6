@@ -1,4 +1,4 @@
-import type { ObjectLiteralExpression, ParsedCommandLine, StringLiteral, TsConfigSourceFile } from "typescript";
+import type { ObjectLiteralExpression, ParsedCommandLine, StringLiteral, TsConfigSourceFile } from "#typescript";
 
 export interface ConfigValue<T> {
   value: T;

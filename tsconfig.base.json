@@ -3,7 +3,7 @@
     "module": "node18",
     "strict": true,
     "verbatimModuleSyntax": true,
-    "types": ["node", "ts-expose-internals"],
+    "types": ["node"],
     "rewriteRelativeImportExtensions": true,
     "erasableSyntaxOnly": true,
     "composite": true

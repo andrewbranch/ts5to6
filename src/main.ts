@@ -140,8 +140,7 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
     logger.warn(
       `${logger.number(projectsUsingBaseUrl.length)} project${
         projectsUsingBaseUrl.length === 1 ? "" : "s"
-      } rely on baseUrl for module resolution:
-    `,
+      } rely on baseUrl for module resolution:`,
     );
     logger.withIndent(() => {
       for (const project of projectsUsingBaseUrl) {
@@ -197,14 +196,18 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
     for (const [fileName, fixes] of fixesByFile) {
       const relativePath = relative(process.cwd(), fileName);
       const pathFixCount = fixes.filter(
-        f => (f.newText.includes("./") || f.newText.includes("../")) && !f.newText.includes('"*":'),
+        f => (f.newText.includes("./") || f.newText.includes("../")) && !f.newText.includes('\"*\":'),
       ).length;
-      const baseUrlFixCount = fixes.length - pathFixCount;
+      const wildcardAddCount = fixes.filter(f => f.newText.includes('\"*\":')).length;
+      const baseUrlFixCount = fixes.length - pathFixCount - wildcardAddCount;
 
       logger.success(logger.file(relativePath));
       logger.withIndent(() => {
         if (pathFixCount > 0) {
           logger.list([`${pathFixCount} path mapping${pathFixCount === 1 ? "" : "s"} converted to relative`]);
+        }
+        if (wildcardAddCount > 0) {
+          logger.list([`${wildcardAddCount} wildcard path mapping${wildcardAddCount === 1 ? "" : "s"} added`]);
         }
         if (baseUrlFixCount > 0) {
           logger.list(["baseUrl removed"]);

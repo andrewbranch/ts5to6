@@ -1,6 +1,7 @@
 import type { ObjectLiteralExpression, PropertyAssignment, StringLiteral, TsConfigSourceFile } from "typescript";
 import { getTrailingCommentRanges, isWhiteSpaceLike, SyntaxKind } from "typescript";
 import type { TextEdit, TSConfig } from "./types.ts";
+import { findCompilerOptionsProperty, insertPropertyIntoObject } from "./utils.ts";
 
 /**
  * Generates text edits to remove baseUrl from tsconfig files.
@@ -77,87 +78,17 @@ function getBaseUrlNullificationEdits(tsconfig: TSConfig): TextEdit[] | undefine
       return undefined;
     }
 
-    const lastProperty = rootExpression.properties[rootExpression.properties.length - 1];
-    if (!lastProperty) {
-      // Not possible; this config definitely extends something
-      return undefined;
-    }
-
-    const edits: TextEdit[] = [];
-    if (!rootExpression.properties.hasTrailingComma) {
-      // We need to add a comma to the last property to add a new one
-      edits.push({
-        fileName: sourceFile.fileName,
-        newText: ",",
-        start: lastProperty.getEnd(),
-        end: lastProperty.getEnd(),
-      });
-    }
-    const trailingComments = getTrailingCommentRanges(sourceFile.getFullText(), lastProperty.getEnd());
-    const end = trailingComments ? trailingComments[trailingComments.length - 1].end : lastProperty.getEnd();
-    const indent = lastProperty.getFullText().match(/^\s*/)?.[0] || "";
-    edits.push({
-      fileName: sourceFile.fileName,
-      newText: `\n"${indent}"compilerOptions": {\n${indent.repeat(2)}"baseUrl": null${
-        rootExpression.properties.hasTrailingComma ? "," : ""
-      }\n${indent}}${rootExpression.properties.hasTrailingComma ? "," : ""}`,
-      start: end,
-      end: end,
-    });
-    return edits;
+    // Use shared helper to insert a compilerOptions property with a nicely indented body
+    return insertPropertyIntoObject(
+      sourceFile.fileName,
+      rootExpression,
+      (indent) => `"compilerOptions": {\n${indent.repeat(2)}"baseUrl": null\n${indent}}`,
+      sourceFile,
+    );
   }
 
-  const lastProperty = compilerOptionsObject.properties[compilerOptionsObject.properties.length - 1];
-  if (!lastProperty) {
-    return [{
-      fileName: sourceFile.fileName,
-      newText: `{ "baseUrl": null }${rootExpression?.properties.hasTrailingComma ? "," : ""}`,
-      start: compilerOptionsObject.getStart(sourceFile),
-      end: compilerOptionsObject.getEnd(),
-    }];
-  }
-
-  const edits: TextEdit[] = [];
-  if (!compilerOptionsObject.properties.hasTrailingComma) {
-    // We need to add a comma to the last property to add a new one
-    edits.push({
-      fileName: sourceFile.fileName,
-      newText: ",",
-      start: lastProperty.getEnd(),
-      end: lastProperty.getEnd(),
-    });
-  }
-  const trailingComments = getTrailingCommentRanges(sourceFile.getFullText(), lastProperty.getEnd());
-  const end = trailingComments ? trailingComments[trailingComments.length - 1].end : lastProperty.getEnd();
-  const indent = lastProperty.getFullText().match(/^\s*/)?.[0] || "";
-  edits.push({
-    fileName: sourceFile.fileName,
-    newText: `\n${indent}"baseUrl": null${compilerOptionsObject.properties.hasTrailingComma ? "," : ""}`,
-    start: end,
-    end: end,
-  });
-  return edits;
-}
-
-/**
- * Finds the compilerOptions property in the root object of the tsconfig.
- */
-function findCompilerOptionsProperty(sourceFile: TsConfigSourceFile): ObjectLiteralExpression | undefined {
-  // Navigate through the AST to find compilerOptions
-  const expression = sourceFile.statements[0]?.expression;
-  if (expression?.kind === SyntaxKind.ObjectLiteralExpression) {
-    const objectLiteral = expression as ObjectLiteralExpression;
-    for (const property of objectLiteral.properties) {
-      if (property.kind === SyntaxKind.PropertyAssignment) {
-        const propertyAssignment = property as PropertyAssignment;
-        const name = propertyAssignment.name;
-        if (name.kind === SyntaxKind.StringLiteral && (name as StringLiteral).text === "compilerOptions") {
-          return propertyAssignment.initializer as ObjectLiteralExpression;
-        }
-      }
-    }
-  }
-  return undefined;
+  // Insert `"baseUrl": null` into the compilerOptions object (helper handles empty/non-empty)
+  return insertPropertyIntoObject(sourceFile.fileName, compilerOptionsObject, `"baseUrl": null`, sourceFile);
 }
 
 /**

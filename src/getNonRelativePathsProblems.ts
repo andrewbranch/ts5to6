@@ -7,6 +7,7 @@ import {
 } from "typescript";
 import type { ConfigStore } from "./configStore.ts";
 import type { NonRelativePathsProblem, TSConfig } from "./types.ts";
+import { findCompilerOptionsProperty } from "./utils.ts";
 
 export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: ConfigStore): NonRelativePathsProblem[] {
   const problems: NonRelativePathsProblem[] = [];
@@ -15,25 +16,13 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: Config
     const problematicPaths: StringLiteral[] = [];
 
     // Traverse the JSON AST to find compilerOptions.paths
-    const rootExpression = tsconfig.file.statements[0]?.expression;
-    if (!rootExpression || rootExpression.kind !== SyntaxKind.ObjectLiteralExpression) {
+    const compilerOptions = findCompilerOptionsProperty(tsconfig.file);
+    if (!compilerOptions) {
       continue;
     }
 
-    const rootObject = rootExpression as ObjectLiteralExpression;
-    const compilerOptionsProperty = rootObject.properties.find(
-      (prop): prop is PropertyAssignment =>
-        prop.kind === SyntaxKind.PropertyAssignment
-        && prop.name?.kind === SyntaxKind.StringLiteral
-        && (prop.name as StringLiteral).text === "compilerOptions",
-    );
-
-    if (!compilerOptionsProperty || compilerOptionsProperty.initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
-      continue;
-    }
-
-    const compilerOptions = compilerOptionsProperty.initializer as ObjectLiteralExpression;
-    const pathsProperty = compilerOptions.properties.find(
+    const compilerOptionsObject = compilerOptions as ObjectLiteralExpression;
+    const pathsProperty = compilerOptionsObject.properties.find(
       (prop): prop is PropertyAssignment =>
         prop.kind === SyntaxKind.PropertyAssignment
         && prop.name?.kind === SyntaxKind.StringLiteral

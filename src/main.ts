@@ -5,9 +5,10 @@ import { ConfigStore } from "./configStore.ts";
 import { getNonRelativePathsFixes } from "./getNonRelativePathsFixes.ts";
 import { getNonRelativePathsProblems } from "./getNonRelativePathsProblems.ts";
 import { getProjectsUsingBaseUrlForResolution } from "./getResolutionUsesBaseUrlProblems.ts";
+import { selectTsconfigForAddingPaths, getAddWildcardPathsEdits } from "./getResolutionUsesBaseUrlFixes.ts";
 import { Logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
-import type { TextEdit } from "./types.ts";
+import type { TextEdit, TSConfig } from "./types.ts";
 import { writeFixes } from "./writeFixes.ts";
 
 function findWorkspaceRoot(tsconfigPath: string): string {
@@ -139,7 +140,8 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
     logger.warn(
       `${logger.number(projectsUsingBaseUrl.length)} project${
         projectsUsingBaseUrl.length === 1 ? "" : "s"
-      } rely on baseUrl for module resolution:`,
+      } rely on baseUrl for module resolution:
+    `,
     );
     logger.withIndent(() => {
       for (const project of projectsUsingBaseUrl) {
@@ -148,10 +150,28 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
     });
   }
 
+  // Determine the tsconfig files that should receive a wildcard `paths` mapping
+  const resolutionTargets = new Map<string, TSConfig>();
+  for (const project of projectsUsingBaseUrl) {
+    const target = selectTsconfigForAddingPaths(project, configStore);
+    if (!target) continue;
+    if (target.fileName.includes("/node_modules/")) continue;
+    resolutionTargets.set(target.fileName, target);
+  }
+  const resolutionFixes: TextEdit[] = [];
+  for (const target of resolutionTargets.values()) {
+    const edits = getAddWildcardPathsEdits(target);
+    if (edits) resolutionFixes.push(...edits);
+  }
+  if (resolutionFixes.length > 0) {
+    logger.info(`${logger.number(resolutionFixes.length)} fix${resolutionFixes.length===1?"":"s"} to add wildcard paths will be applied`);
+  }
+  
   // Generate and apply fixes
   const pathFixes = pathsProblems.flatMap(getNonRelativePathsFixes);
   const baseUrlFixes = getRemoveBaseUrlEdits(configs.containsBaseUrl);
-  const allFixes = [...pathFixes, ...baseUrlFixes];
+  // Apply path fixes first, then add wildcard paths for resolution, then remove baseUrl
+  const allFixes = [...pathFixes, ...resolutionFixes, ...baseUrlFixes];
 
   if (allFixes.length === 0) {
     logger.success("No changes needed!");
@@ -176,7 +196,9 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
   logger.withIndent(() => {
     for (const [fileName, fixes] of fixesByFile) {
       const relativePath = relative(process.cwd(), fileName);
-      const pathFixCount = fixes.filter(f => f.newText.includes("./") || f.newText.includes("../")).length;
+      const pathFixCount = fixes.filter(
+        f => (f.newText.includes("./") || f.newText.includes("../")) && !f.newText.includes('"*":'),
+      ).length;
       const baseUrlFixCount = fixes.length - pathFixCount;
 
       logger.success(logger.file(relativePath));

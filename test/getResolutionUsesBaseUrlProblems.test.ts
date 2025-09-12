@@ -18,7 +18,7 @@ test("getProjectsUsingBaseUrlForResolution - project-references fixture", () => 
   assert.equal(configs.affectedProjects.length, 3, "Should have 3 affected projects");
 
   // Get the projects that actually use baseUrl for resolution
-  const projectsUsingBaseUrl = getProjectsUsingBaseUrlForResolution(configs.affectedProjects, configStore);
+  const projectsUsingBaseUrl = getProjectsUsingBaseUrlForResolution(configs.affectedProjects);
 
   // Should have 2 projects using baseUrl: client and server (shared does not)
   assert.equal(projectsUsingBaseUrl.length, 2, "Should have 2 projects using baseUrl for resolution");

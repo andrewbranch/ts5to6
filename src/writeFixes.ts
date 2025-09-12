@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import type { TextEdit } from "./types.ts";
+import { toSorted } from "typescript";
 
 /**
  * Applies an array of text edits to their respective files on disk.
@@ -33,7 +34,7 @@ function applyEditsToFile(fileName: string, edits: TextEdit[]): void {
 
   // Sort edits in reverse order by start position
   // This ensures that later edits don't affect the positions of earlier edits
-  const sortedEdits = [...edits].sort((a, b) => b.start - a.start);
+  const sortedEdits = (toSorted(edits, (a, b) => a.start - b.start) as any as TextEdit[]).reverse();
 
   // Validate that edits don't overlap
   for (let i = 0; i < sortedEdits.length - 1; i++) {

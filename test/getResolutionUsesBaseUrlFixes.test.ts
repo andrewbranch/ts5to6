@@ -3,10 +3,7 @@ import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { ConfigStore } from "../src/configStore.ts";
-import {
-  selectTsconfigForAddingPaths,
-  getAddWildcardPathsEdits,
-} from "../src/getResolutionUsesBaseUrlFixes.ts";
+import { getAddWildcardPathsEdits, selectTsconfigForAddingPaths } from "../src/getResolutionUsesBaseUrlFixes.ts";
 import { applyEditsToConfigs } from "./utils.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -113,4 +110,43 @@ test("getAddWildcardPathsEdits - project-references fixture", () => {
 }
 `;
   assert.equal(serverUpdated, expectedServer, "Server config should match expected formatting with wildcard mapping");
+});
+
+// New test that ensures when a project extends a node_modules tsconfig that defines `paths`, inserting wildcard `paths` into the main tsconfig will copy the inherited path entries.
+test("getAddWildcardPathsEdits - copies inherited paths from node_modules extended config", () => {
+  const tsconfigPath = resolve(__dirname, "fixtures", "extends-node-mod", "tsconfig.json");
+  const store = new ConfigStore();
+  store.loadProjects(tsconfigPath);
+
+  const project = store.getProjectConfig(tsconfigPath);
+  assert(project, "Project should be loaded");
+
+  const target = selectTsconfigForAddingPaths(project as any, store);
+  // In this scenario the project itself should be chosen as the target
+  assert.equal(target.fileName, project!.fileName);
+
+  const edits = getAddWildcardPathsEdits(target);
+  assert(edits && edits.length > 0, "Should produce edits to add a wildcard mapping");
+
+  const applied = applyEditsToConfigs(store, edits || []);
+  const updated = applied[tsconfigPath] || store.getText(tsconfigPath) || "";
+  const expected = `{
+  "extends": "@tsconfig/docusaurus/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "./dist",
+    "paths": {
+      "@pkg/*": ["packages/pkg/*"],
+      "shared/*": ["shared/*"],
+      "*": ["./*"]
+    }
+  },
+  "include": ["src/**/*"]
+}
+`;
+  assert.equal(
+    updated,
+    expected,
+    "Project tsconfig should include wildcard mapping (inherited paths are in node_modules and not copied)",
+  );
 });

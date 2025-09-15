@@ -4,9 +4,9 @@ import ts, {
   type PropertyAssignment,
   type StringLiteral,
   SyntaxKind,
-  type TsConfigSourceFile
+  type TsConfigSourceFile,
 } from "#typescript";
-import type { ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
+import type { EditDescription, ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
 
 export const getCanonicalFileName = ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames);
 
@@ -23,6 +23,7 @@ export function insertPropertyIntoObject(
   targetObject: ObjectLiteralExpression,
   newPropertyText: string | ((indent: string) => string),
   sourceFile: TsConfigSourceFile,
+  description?: EditDescription,
 ): TextEdit[] {
   const text = sourceFile.getFullText();
 
@@ -71,6 +72,7 @@ export function insertPropertyIntoObject(
     newText: `\n${indent}${newText}${targetObject.properties.hasTrailingComma ? "," : ""}`,
     start: end,
     end: end,
+    description,
   });
 
   return edits;

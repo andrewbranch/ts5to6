@@ -2,10 +2,10 @@ import { glob } from "glob";
 import { existsSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { ConfigStore } from "./configStore.ts";
-import { getNonRelativePathsFixes } from "./getNonRelativePathsFixes.ts";
-import { getNonRelativePathsProblems } from "./getNonRelativePathsProblems.ts";
+import { getPathsFixes } from "./getPathsFixes.ts";
+import { getPathsProblems } from "./getPathsProblems.ts";
+import { getAddWildcardPathsEdits, selectTsconfigForAddingPaths } from "./getResolutionUsesBaseUrlFixes.ts";
 import { getProjectsUsingBaseUrlForResolution } from "./getResolutionUsesBaseUrlProblems.ts";
-import { selectTsconfigForAddingPaths, getAddWildcardPathsEdits } from "./getResolutionUsesBaseUrlFixes.ts";
 import { Logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
 import type { TextEdit, TSConfig } from "./types.ts";
@@ -118,13 +118,13 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
   }
 
   // Analyze path problems
-  const pathsProblems = getNonRelativePathsProblems(configs.containsPaths, configStore);
+  const pathsProblems = getPathsProblems(configs.containsPaths, configStore);
 
   if (pathsProblems.length === 0) {
-    logger.success("No non-relative path mappings found");
+    logger.success("No path mapping problems found");
   } else {
     logger.info(
-      `Found non-relative path mappings in ${logger.number(pathsProblems.length)} file${
+      `Found path mapping problems in ${logger.number(pathsProblems.length)} file${
         pathsProblems.length === 1 ? "" : "s"
       }`,
     );
@@ -163,11 +163,15 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
     if (edits) resolutionFixes.push(...edits);
   }
   if (resolutionFixes.length > 0) {
-    logger.info(`${logger.number(resolutionFixes.length)} fix${resolutionFixes.length===1?"":"s"} to add wildcard paths will be applied`);
+    logger.info(
+      `${logger.number(resolutionFixes.length)} fix${
+        resolutionFixes.length === 1 ? "" : "s"
+      } to add wildcard paths will be applied`,
+    );
   }
-  
+
   // Generate and apply fixes
-  const pathFixes = pathsProblems.flatMap(getNonRelativePathsFixes);
+  const pathFixes = pathsProblems.flatMap(getPathsFixes);
   const baseUrlFixes = getRemoveBaseUrlEdits(configs.containsBaseUrl);
   // Apply path fixes first, then add wildcard paths for resolution, then remove baseUrl
   const allFixes = [...pathFixes, ...resolutionFixes, ...baseUrlFixes];
@@ -195,24 +199,22 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
   logger.withIndent(() => {
     for (const [fileName, fixes] of fixesByFile) {
       const relativePath = relative(process.cwd(), fileName);
-      const pathFixCount = fixes.filter(
-        f => (f.newText.includes("./") || f.newText.includes("../")) && !f.newText.includes('\"*\":'),
-      ).length;
-      const wildcardAddCount = fixes.filter(f => f.newText.includes('\"*\":')).length;
-      const baseUrlFixCount = fixes.length - pathFixCount - wildcardAddCount;
+
+      // Collect counts for non-empty descriptions for the file
+      const descCounts = new Map<string, number>();
+      for (const f of fixes) {
+        if (!f.description) continue;
+        descCounts.set(f.description, (descCounts.get(f.description) || 0) + 1);
+      }
 
       logger.success(logger.file(relativePath));
-      logger.withIndent(() => {
-        if (pathFixCount > 0) {
-          logger.list([`${pathFixCount} path mapping${pathFixCount === 1 ? "" : "s"} converted to relative`]);
-        }
-        if (wildcardAddCount > 0) {
-          logger.list([`${wildcardAddCount} wildcard path mapping${wildcardAddCount === 1 ? "" : "s"} added`]);
-        }
-        if (baseUrlFixCount > 0) {
-          logger.list(["baseUrl removed"]);
-        }
-      });
+      if (descCounts.size > 0) {
+        logger.withIndent(() => {
+          for (const [desc, count] of descCounts) {
+            logger.list([`${desc} (${logger.number(count)}x)`]);
+          }
+        });
+      }
     }
   });
 }

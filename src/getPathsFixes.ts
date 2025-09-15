@@ -1,8 +1,8 @@
-import { dirname, relative, resolve } from "node:path";
 import { normalizeSlashes } from "#typescript";
-import type { NonRelativePathsProblem, TextEdit } from "./types.ts";
+import { dirname, relative, resolve } from "node:path";
+import type { PathsProblem, TextEdit } from "./types.ts";
 
-export function getNonRelativePathsFixes(problem: NonRelativePathsProblem): TextEdit[] {
+export function getPathsFixes(problem: PathsProblem): TextEdit[] {
   const { tsconfig, problematicPaths, effectiveBaseUrl } = problem;
   const edits: TextEdit[] = [];
   const tsconfigDir = dirname(tsconfig.fileName);
@@ -27,6 +27,9 @@ export function getNonRelativePathsFixes(problem: NonRelativePathsProblem): Text
       newText: `"${normalizedRelativePath}"`,
       start: pathStringLiteral.getStart(tsconfig.file),
       end: pathStringLiteral.getEnd(),
+      description: problem.kind === "NonRelative"
+        ? "converted path mapping to relative"
+        : "rebased path mapping against tsconfig directory",
     });
   }
 

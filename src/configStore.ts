@@ -1,4 +1,3 @@
-import { dirname, extname, resolve } from "node:path";
 import {
   type ExtendedConfigCacheEntry,
   formatDiagnostic,
@@ -15,6 +14,7 @@ import {
   sys,
   type TsConfigSourceFile,
 } from "#typescript";
+import { dirname, extname } from "node:path";
 import type { ConfigValue, ProjectTSConfig, TSConfig } from "./types.ts";
 import { getCanonicalFileName, isProjectTSConfig, toPath } from "./utils.ts";
 
@@ -194,26 +194,23 @@ export class ConfigStore {
         && (prop.name as StringLiteral).text === "compilerOptions",
     );
 
-    if (!compilerOptionsProperty || compilerOptionsProperty.initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
-      tsconfig.effectiveBaseUrlStack = false;
-      return undefined;
-    }
-
-    const compilerOptions = compilerOptionsProperty.initializer as ObjectLiteralExpression;
-    const baseUrlProperty = compilerOptions.properties.find(
-      (prop): prop is PropertyAssignment =>
-        prop.kind === SyntaxKind.PropertyAssignment
-        && prop.name?.kind === SyntaxKind.StringLiteral
-        && (prop.name as StringLiteral).text === "baseUrl",
-    );
-
     let ownValue: ConfigValue<StringLiteral> | undefined;
-    if (baseUrlProperty?.initializer.kind === SyntaxKind.StringLiteral) {
-      const baseUrlLiteral = baseUrlProperty.initializer as StringLiteral;
-      ownValue = {
-        value: baseUrlLiteral,
-        definedIn: tsconfig,
-      };
+    if (compilerOptionsProperty && compilerOptionsProperty.initializer.kind === SyntaxKind.ObjectLiteralExpression) {
+      const compilerOptions = compilerOptionsProperty.initializer as ObjectLiteralExpression;
+      const baseUrlProperty = compilerOptions.properties.find(
+        (prop): prop is PropertyAssignment =>
+          prop.kind === SyntaxKind.PropertyAssignment
+          && prop.name?.kind === SyntaxKind.StringLiteral
+          && (prop.name as StringLiteral).text === "baseUrl",
+      );
+
+      if (baseUrlProperty?.initializer.kind === SyntaxKind.StringLiteral) {
+        const baseUrlLiteral = baseUrlProperty.initializer as StringLiteral;
+        ownValue = {
+          value: baseUrlLiteral,
+          definedIn: tsconfig,
+        };
+      }
     }
 
     let extendedStack: ConfigValue<StringLiteral>[] | undefined;

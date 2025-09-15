@@ -68,6 +68,7 @@ function getBaseUrlNullificationEdits(tsconfig: TSConfig): TextEdit[] | undefine
       newText: "null",
       start: stringLiteral.getStart(sourceFile),
       end: stringLiteral.getEnd(),
+      description: "set baseUrl to null to clear value from extended config",
     }];
   }
 
@@ -84,11 +85,18 @@ function getBaseUrlNullificationEdits(tsconfig: TSConfig): TextEdit[] | undefine
       rootExpression,
       (indent) => `"compilerOptions": {\n${indent.repeat(2)}"baseUrl": null\n${indent}}`,
       sourceFile,
+      "set baseUrl to null to clear value from extended config",
     );
   }
 
   // Insert `"baseUrl": null` into the compilerOptions object (helper handles empty/non-empty)
-  return insertPropertyIntoObject(sourceFile.fileName, compilerOptionsObject, `"baseUrl": null`, sourceFile);
+  return insertPropertyIntoObject(
+    sourceFile.fileName,
+    compilerOptionsObject,
+    `"baseUrl": null`,
+    sourceFile,
+    "set baseUrl to null to clear value from extended config",
+  );
 }
 
 /**
@@ -139,6 +147,7 @@ function calculateRemovalRanges(
     newText: "",
     start,
     end,
+    description: "removed baseUrl",
   }];
 
   if (

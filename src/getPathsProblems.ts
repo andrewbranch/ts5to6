@@ -5,12 +5,13 @@ import {
   type StringLiteral,
   SyntaxKind,
 } from "#typescript";
+import { dirname, resolve } from "node:path";
 import type { ConfigStore } from "./configStore.ts";
-import type { NonRelativePathsProblem, TSConfig } from "./types.ts";
-import { findCompilerOptionsProperty } from "./utils.ts";
+import type { PathsProblem, TSConfig } from "./types.ts";
+import { findCompilerOptionsProperty, toPath } from "./utils.ts";
 
-export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: ConfigStore): NonRelativePathsProblem[] {
-  const problems: NonRelativePathsProblem[] = [];
+export function getPathsProblems(tsconfigs: TSConfig[], store: ConfigStore): PathsProblem[] {
+  const problems: PathsProblem[] = [];
 
   for (const tsconfig of tsconfigs) {
     const problematicPaths: StringLiteral[] = [];
@@ -38,6 +39,12 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: Config
       throw new Error("Expected config searched for `paths` problems to have an effective `baseUrl`");
     }
 
+    // If the baseUrl applied to these paths is not the tsconfig directory, each path entry
+    // must be updated, even if it's already relative.
+    const pathsBaseWillChange =
+      toPath(resolve(dirname(effectiveBaseUrl[0].definedIn.fileName), effectiveBaseUrl[0].value.text))
+        !== toPath(dirname(tsconfig.fileName));
+
     const effectivePaths = store.getEffectivePaths(tsconfig);
     if (!effectivePaths) {
       throw new Error("Expected config searched for `paths` problems to have `paths`");
@@ -61,7 +68,7 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: Config
           const pathValue = pathString.text;
 
           // Check if the path is non-relative (doesn't start with ./ or ../)
-          if (!pathValue.startsWith("./") && !pathValue.startsWith("../")) {
+          if (pathsBaseWillChange || (!pathValue.startsWith("./") && !pathValue.startsWith("../"))) {
             problematicPaths.push(pathString);
           }
         }
@@ -70,7 +77,7 @@ export function getNonRelativePathsProblems(tsconfigs: TSConfig[], store: Config
 
     if (problematicPaths.length > 0) {
       problems.push({
-        kind: "NonRelativePaths",
+        kind: pathsBaseWillChange ? "BaseChanged" : "NonRelative",
         tsconfig,
         problematicPaths,
         effectiveBaseUrl: effectiveBaseUrl[0],

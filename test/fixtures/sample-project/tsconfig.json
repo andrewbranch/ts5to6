@@ -7,7 +7,7 @@
     "paths": {
       "components/*": ["components/*"],
       "utils/*": ["utils/*"],
-      "types": ["types/index"]
+      "types": ["./types/index"]
     },
     "strict": true,
     "esModuleInterop": true,

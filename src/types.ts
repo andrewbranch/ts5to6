@@ -23,19 +23,26 @@ export interface ProjectTSConfig extends TSConfig {
   parsed: ParsedCommandLine;
 }
 
-export interface NonRelativePathsProblem {
-  kind: "NonRelativePaths";
+export interface PathsProblem {
+  kind: "NonRelative" | "BaseChanged";
   tsconfig: TSConfig;
   effectiveBaseUrl: ConfigValue<StringLiteral>;
   effectivePaths: ConfigValue<ObjectLiteralExpression>;
   problematicPaths: StringLiteral[];
 }
 
-export type Problem = NonRelativePathsProblem;
+export type EditDescription =
+  | "converted path mapping to relative"
+  | "rebased path mapping against tsconfig directory"
+  | "added wildcard path mapping"
+  | "added wildcard path mapping, copied mappings from extended config"
+  | "removed baseUrl"
+  | "set baseUrl to null to clear value from extended config";
 
 export interface TextEdit {
   fileName: string;
   newText: string;
   start: number;
   end: number;
+  description?: EditDescription;
 }

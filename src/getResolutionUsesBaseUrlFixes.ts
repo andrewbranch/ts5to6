@@ -1,14 +1,7 @@
-import {
-  type ArrayLiteralExpression,
-  type ObjectLiteralExpression,
-  type PropertyAssignment,
-  type StringLiteral,
-  SyntaxKind,
-} from "#typescript";
-import { dirname, relative, resolve } from "node:path";
+import { type ObjectLiteralExpression, type PropertyAssignment, type StringLiteral, SyntaxKind } from "#typescript";
 import type { ConfigStore } from "./configStore.ts";
 import type { ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
-import { findCompilerOptionsProperty, insertPropertyIntoObject } from "./utils.ts";
+import { createCopiedPathsEdits, findCompilerOptionsProperty, insertPropertyIntoObject } from "./utils.ts";
 
 /**
  * Selects the tsconfig file that should be edited to add a `paths` entry
@@ -47,8 +40,6 @@ export function getAddWildcardPathsEdits(tsconfig: TSConfig): TextEdit[] | undef
   }
 
   const sourceFile = tsconfig.file;
-  const text = sourceFile.getFullText();
-
   const rootExpression = sourceFile.statements[0]?.expression as ObjectLiteralExpression | undefined;
   const compilerOptionsObject = findCompilerOptionsProperty(sourceFile);
 
@@ -96,44 +87,10 @@ export function getAddWildcardPathsEdits(tsconfig: TSConfig): TextEdit[] | undef
     // Insert the `"*"` mapping into the paths object (helper handles empty/non-empty)
     return insertPropertyIntoObject(sourceFile.fileName, pathsObject, `"*": ["./*"]`, sourceFile);
   } else if (tsconfig.effectivePaths && tsconfig.effectivePaths.definedIn !== tsconfig) {
-    // If paths was defined in an extended config and we're adding it here, we need to
-    // copy the entries from the extended config before adding the wildcard mapping,
-    // transforming their relative paths to be correct for this config.
-    const extendedPaths: Record<string, string[]> = {};
-    const effectiveBaseUrl = tsconfig.effectiveBaseUrlStack
-        && resolve(
-          dirname(tsconfig.effectiveBaseUrlStack[0].definedIn.fileName),
-          tsconfig.effectiveBaseUrlStack[0].value.text,
-        ) || dirname(tsconfig.fileName);
-    for (const prop of tsconfig.effectivePaths.value.properties) {
-      if (
-        prop.kind === SyntaxKind.PropertyAssignment
-        && prop.name?.kind === SyntaxKind.StringLiteral
-        && prop.name.text !== "*"
-        && prop.initializer.kind === SyntaxKind.ArrayLiteralExpression
-        && (prop.initializer as ArrayLiteralExpression).elements.every(e => e.kind === SyntaxKind.StringLiteral)
-      ) {
-        extendedPaths[prop.name.text] = (prop.initializer as ArrayLiteralExpression).elements.map(e => {
-          const absolute = resolve(effectiveBaseUrl, (e as StringLiteral).text);
-          return relative(dirname(tsconfig.fileName), absolute);
-        });
-      }
-    }
-
-    extendedPaths["*"] = ["./*"];
-    return insertPropertyIntoObject(
-      sourceFile.fileName,
-      compilerOptionsObject,
-      indent => {
-        const subIndent = inferIndent(indent, 2).repeat(3);
-        const properties = Object.entries(extendedPaths).map(([k, v]) =>
-          `${subIndent}"${k}": [${v.map(p => `"${p}"`).join(", ")}]`
-        ).join(",\n");
-        return `\"paths\": {\n${properties}\n${indent}}`;
-      },
-      sourceFile,
-      "added wildcard path mapping, copied mappings from extended config",
-    );
+    // If paths were inherited from an extended config (e.g. in node_modules), copy the
+    // entries into this config and transform their targets so they're relative to
+    // this tsconfig file. Delegate to shared helper which returns TextEdits.
+    return createCopiedPathsEdits(tsconfig, true);
   }
 
   // Add a `paths` property to the existing compilerOptions object

@@ -1,11 +1,13 @@
 import ts, {
   getTrailingCommentRanges,
+  normalizeSlashes,
   type ObjectLiteralExpression,
   type PropertyAssignment,
   type StringLiteral,
   SyntaxKind,
   type TsConfigSourceFile,
 } from "#typescript";
+import { dirname, relative, resolve } from "node:path";
 import type { EditDescription, ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
 
 export const getCanonicalFileName = ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames);
@@ -92,5 +94,95 @@ export function findCompilerOptionsProperty(sourceFile: TsConfigSourceFile): Obj
       }
     }
   }
+  return undefined;
+}
+
+/**
+ * Create TextEdits that copy path mappings from an inherited paths object into
+ * the provided tsconfig. The entries are transformed so that their targets are
+ * relative to the target tsconfig file location.
+ *
+ * If `compilerOptionsObject` is provided we'll add a `paths` property to it.
+ * Otherwise, if `rootObject` is provided we'll create a `compilerOptions`
+ * property containing the `paths` mapping.
+ */
+export function createCopiedPathsEdits(
+  tsconfig: TSConfig,
+  includeWildcard = true,
+): TextEdit[] | undefined {
+  // Determine inherited paths and base directory from the TSConfig itself.
+  if (!tsconfig.effectivePaths || tsconfig.effectivePaths.definedIn === tsconfig) return undefined;
+  const sourceFile = tsconfig.file;
+  const rootObject = sourceFile.statements[0]?.expression as ObjectLiteralExpression | undefined;
+  const compilerOptionsObject = findCompilerOptionsProperty(sourceFile);
+  const inheritedPathsObject = tsconfig.effectivePaths.value;
+  const inheritedBaseDir = tsconfig.effectiveBaseUrlStack && tsconfig.effectiveBaseUrlStack.length > 0
+    ? resolve(
+      dirname(tsconfig.effectiveBaseUrlStack[0].definedIn.fileName),
+      tsconfig.effectiveBaseUrlStack[0].value.text,
+    )
+    : dirname(tsconfig.fileName);
+
+  const extendedPaths: Record<string, string[]> = {};
+  for (const prop of inheritedPathsObject.properties) {
+    if (
+      prop.kind === SyntaxKind.PropertyAssignment
+      && prop.name?.kind === SyntaxKind.StringLiteral
+      && (prop.name as StringLiteral).text !== "*"
+      && prop.initializer.kind === SyntaxKind.ArrayLiteralExpression
+    ) {
+      const key = (prop.name as StringLiteral).text;
+      const elements = (prop.initializer as any).elements;
+      const values: string[] = [];
+      for (const e of elements) {
+        if (e.kind === SyntaxKind.StringLiteral) {
+          const absolute = resolve(inheritedBaseDir, (e as StringLiteral).text);
+          const rel = normalizeSlashes(relative(dirname(tsconfig.fileName), absolute));
+          values.push(rel.startsWith("./") || rel.startsWith("../") ? rel : `./${rel}`);
+        }
+      }
+      if (values.length > 0) extendedPaths[key] = values;
+    }
+  }
+
+  // Optionally include wildcard mapping
+  if (includeWildcard) {
+    extendedPaths["*"] = ["./*"];
+  }
+
+  const buildPropertyText = (indent: string) => {
+    // Determine indentation for each property line
+    const subIndent = indent + "  ";
+    const properties = Object.entries(extendedPaths)
+      .map(([k, v]) => `${subIndent}"${k}": [${v.map(p => `"${p}"`).join(", ")}]`)
+      .join(",\n");
+    return `"paths": {\n${properties}\n${indent}}`;
+  };
+
+  if (compilerOptionsObject) {
+    return insertPropertyIntoObject(
+      tsconfig.fileName,
+      compilerOptionsObject,
+      buildPropertyText,
+      sourceFile,
+      includeWildcard
+        ? "added wildcard path mapping, copied mappings from extended config"
+        : "copied mappings from extended config",
+    );
+  }
+
+  // If compilerOptions doesn't exist, add the whole compilerOptions object
+  if (rootObject) {
+    return insertPropertyIntoObject(
+      tsconfig.fileName,
+      rootObject,
+      (indent: string) => `"compilerOptions": { ${buildPropertyText(indent)} }`,
+      sourceFile,
+      includeWildcard
+        ? "added wildcard path mapping, copied mappings from extended config"
+        : "copied mappings from extended config",
+    );
+  }
+
   return undefined;
 }

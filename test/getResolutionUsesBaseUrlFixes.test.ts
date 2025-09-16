@@ -112,7 +112,6 @@ test("getAddWildcardPathsEdits - project-references fixture", () => {
   assert.equal(serverUpdated, expectedServer, "Server config should match expected formatting with wildcard mapping");
 });
 
-// New test that ensures when a project extends a node_modules tsconfig that defines `paths`, inserting wildcard `paths` into the main tsconfig will copy the inherited path entries.
 test("getAddWildcardPathsEdits - copies inherited paths from node_modules extended config", () => {
   const tsconfigPath = resolve(__dirname, "fixtures", "extends-node-mod", "tsconfig.json");
   const store = new ConfigStore();
@@ -136,8 +135,8 @@ test("getAddWildcardPathsEdits - copies inherited paths from node_modules extend
     "baseUrl": ".",
     "outDir": "./dist",
     "paths": {
-      "@pkg/*": ["packages/pkg/*"],
-      "shared/*": ["shared/*"],
+      "@pkg/*": ["./packages/pkg/*"],
+      "shared/*": ["./shared/*"],
       "*": ["./*"]
     }
   },

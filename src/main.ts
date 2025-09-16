@@ -9,6 +9,7 @@ import { getProjectsUsingBaseUrlForResolution } from "./getResolutionUsesBaseUrl
 import { Logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
 import type { TextEdit, TSConfig } from "./types.ts";
+import { createCopiedPathsEdits } from "./utils.ts";
 import { writeFixes } from "./writeFixes.ts";
 
 function findWorkspaceRoot(tsconfigPath: string): string {
@@ -118,7 +119,7 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
   }
 
   // Analyze path problems
-  const pathsProblems = getPathsProblems(configs.containsPaths, configStore);
+  const pathsProblems = getPathsProblems([...configs.containsPaths, ...configs.inheritsPaths], configStore);
 
   if (pathsProblems.length === 0) {
     logger.success("No path mapping problems found");
@@ -157,23 +158,34 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
     if (target.fileName.includes("/node_modules/")) continue;
     resolutionTargets.set(target.fileName, target);
   }
+
+  // Generate and apply fixes
+  const pathFixes: TextEdit[] = [];
+  for (const problem of pathsProblems) {
+    if (
+      problem.effectivePaths.definedIn !== problem.tsconfig
+      && problem.effectivePaths.definedIn.fileName.includes("/node_modules/")
+    ) {
+      // Paths were inherited from a node_modules config, but the baseUrl is changing,
+      // so we need to copy them to here. This will interfere with adding a wildcard
+      // as a fix later, so combine the fixes here.
+      const needsWildcard = resolutionTargets.has(problem.tsconfig.fileName);
+      pathFixes.push(...createCopiedPathsEdits(problem.tsconfig, needsWildcard) || []);
+      if (needsWildcard) {
+        resolutionTargets.delete(problem.tsconfig.fileName);
+      }
+    } else {
+      const edits = getPathsFixes(problem);
+      pathFixes.push(...edits);
+    }
+  }
   const resolutionFixes: TextEdit[] = [];
   for (const target of resolutionTargets.values()) {
     const edits = getAddWildcardPathsEdits(target);
     if (edits) resolutionFixes.push(...edits);
   }
-  if (resolutionFixes.length > 0) {
-    logger.info(
-      `${logger.number(resolutionFixes.length)} fix${
-        resolutionFixes.length === 1 ? "" : "s"
-      } to add wildcard paths will be applied`,
-    );
-  }
 
-  // Generate and apply fixes
-  const pathFixes = pathsProblems.flatMap(getPathsFixes);
   const baseUrlFixes = getRemoveBaseUrlEdits(configs.containsBaseUrl);
-  // Apply path fixes first, then add wildcard paths for resolution, then remove baseUrl
   const allFixes = [...pathFixes, ...resolutionFixes, ...baseUrlFixes];
 
   if (allFixes.length === 0) {

@@ -1,10 +1,4 @@
-import {
-  type ArrayLiteralExpression,
-  type ObjectLiteralExpression,
-  type PropertyAssignment,
-  type StringLiteral,
-  SyntaxKind,
-} from "#typescript";
+import { type ArrayLiteralExpression, type PropertyAssignment, type StringLiteral, SyntaxKind } from "#typescript";
 import { dirname, resolve } from "node:path";
 import type { ConfigStore } from "./configStore.ts";
 import type { PathsProblem, TSConfig } from "./types.ts";
@@ -22,18 +16,6 @@ export function getPathsProblems(tsconfigs: TSConfig[], store: ConfigStore): Pat
       continue;
     }
 
-    const compilerOptionsObject = compilerOptions as ObjectLiteralExpression;
-    const pathsProperty = compilerOptionsObject.properties.find(
-      (prop): prop is PropertyAssignment =>
-        prop.kind === SyntaxKind.PropertyAssignment
-        && prop.name?.kind === SyntaxKind.StringLiteral
-        && (prop.name as StringLiteral).text === "paths",
-    );
-
-    if (!pathsProperty || pathsProperty.initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
-      continue;
-    }
-
     const effectiveBaseUrl = store.getEffectiveBaseUrlStack(tsconfig);
     if (!effectiveBaseUrl) {
       throw new Error("Expected config searched for `paths` problems to have an effective `baseUrl`");
@@ -41,9 +23,14 @@ export function getPathsProblems(tsconfigs: TSConfig[], store: ConfigStore): Pat
 
     // If the baseUrl applied to these paths is not the tsconfig directory, each path entry
     // must be updated, even if it's already relative.
-    const pathsBaseWillChange =
-      toPath(resolve(dirname(effectiveBaseUrl[0].definedIn.fileName), effectiveBaseUrl[0].value.text))
-        !== toPath(dirname(tsconfig.fileName));
+    const currentBaseUrl = toPath(
+      resolve(dirname(effectiveBaseUrl[0].definedIn.fileName), effectiveBaseUrl[0].value.text),
+    );
+    const preservedBaseUrl = effectiveBaseUrl.find(b => b.definedIn.fileName.includes("/node_modules/"));
+    const baseUrlAfterRemoval = preservedBaseUrl
+      ? toPath(resolve(dirname(preservedBaseUrl.definedIn.fileName), preservedBaseUrl.value.text))
+      : toPath(dirname(tsconfig.fileName));
+    const pathsBaseWillChange = currentBaseUrl !== baseUrlAfterRemoval;
 
     const effectivePaths = store.getEffectivePaths(tsconfig);
     if (!effectivePaths) {

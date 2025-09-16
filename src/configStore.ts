@@ -39,6 +39,7 @@ export interface Configs {
   tsconfigCount: number;
   projectCount: number;
   containsPaths: TSConfig[];
+  inheritsPaths: ProjectTSConfig[];
   containsBaseUrl: TSConfig[];
   affectedProjects: ProjectTSConfig[];
 }
@@ -50,6 +51,7 @@ export class ConfigStore {
   getConfigs(): Configs {
     const containsBaseUrl = new Map<string, TSConfig>();
     const containsPaths = new Map<string, TSConfig>();
+    const inheritsPaths = new Map<string, ProjectTSConfig>();
     const affectedProjects: ProjectTSConfig[] = [];
 
     for (const projectConfig of this.projectConfigs.values()) {
@@ -63,6 +65,9 @@ export class ConfigStore {
         const effectivePaths = this.getEffectivePaths(projectConfig);
         if (effectivePaths) {
           containsPaths.set(toPath(effectivePaths.definedIn.fileName), effectivePaths.definedIn);
+          if (effectivePaths.definedIn !== projectConfig) {
+            inheritsPaths.set(toPath(projectConfig.fileName), projectConfig);
+          }
         }
       }
     }
@@ -72,6 +77,7 @@ export class ConfigStore {
       projectCount: this.projectConfigs.size,
       containsBaseUrl: Array.from(containsBaseUrl.values()),
       containsPaths: Array.from(containsPaths.values()),
+      inheritsPaths: Array.from(inheritsPaths.values()),
       affectedProjects,
     };
   }

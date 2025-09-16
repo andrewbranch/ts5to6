@@ -3,7 +3,7 @@ import { dirname, relative, resolve } from "node:path";
 import type { PathsProblem, TextEdit } from "./types.ts";
 
 export function getPathsFixes(problem: PathsProblem): TextEdit[] {
-  const { tsconfig, problematicPaths, effectiveBaseUrl } = problem;
+  const { tsconfig, problematicPaths, effectivePaths, effectiveBaseUrl } = problem;
   const edits: TextEdit[] = [];
   const tsconfigDir = dirname(tsconfig.fileName);
 

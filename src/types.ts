@@ -36,6 +36,7 @@ export type EditDescription =
   | "rebased path mapping against tsconfig directory"
   | "added wildcard path mapping"
   | "added wildcard path mapping, copied mappings from extended config"
+  | "copied mappings from extended config"
   | "removed baseUrl"
   | "set baseUrl to null to clear value from extended config";
 

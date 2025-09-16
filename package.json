@@ -1,6 +1,6 @@
 {
   "name": "@andrewbranch/ts-fix-baseurl",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "CLI to migrate TypeScript projects away from `baseUrl` usage",
   "license": "MIT",
   "author": "Andrew Branch",

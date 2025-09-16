@@ -166,11 +166,8 @@ function fixBaseURLWorker(
   // Generate and apply fixes
   const pathFixes: TextEdit[] = [];
   for (const problem of pathsProblems) {
-    if (
-      problem.effectivePaths.definedIn !== problem.tsconfig
-      && problem.effectivePaths.definedIn.fileName.includes("/node_modules/")
-    ) {
-      // Paths were inherited from a node_modules config, but the baseUrl is changing,
+    if (problem.effectivePaths.definedIn !== problem.tsconfig) {
+      // Paths were inherited from an extended config, but the baseUrl is changing,
       // so we need to copy them to here. This will interfere with adding a wildcard
       // as a fix later, so combine the fixes here.
       const needsWildcard = resolutionTargets.has(problem.tsconfig.fileName);

@@ -37,6 +37,10 @@ export function getPathsProblems(tsconfigs: TSConfig[], store: ConfigStore): Pat
       throw new Error("Expected config searched for `paths` problems to have `paths`");
     }
 
+    if (effectivePaths.definedIn !== tsconfig && effectiveBaseUrl[0].definedIn !== tsconfig) {
+      continue;
+    }
+
     // Check each path mapping for non-relative paths
     for (const pathMapping of effectivePaths.value.properties) {
       if (pathMapping.kind !== SyntaxKind.PropertyAssignment) {

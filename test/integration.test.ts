@@ -13,6 +13,37 @@ function createTestLogger() {
   };
 }
 
+test("integration - extends-1 fixture", () => {
+  const extendsPath = resolve(__dirname, "fixtures", "extends-1", "tsconfig.json");
+  const logger = createTestLogger();
+  assert.deepEqual(fixBaseURLSync(extendsPath, logger.writeLn), {
+    [resolve(__dirname, "fixtures", "extends-1", "tsconfig.base.json")]: `{
+  "compilerOptions": {
+    "paths": {
+      "utils/*": ["./src/utils/*"],
+      "components/*": ["./src/components/*"]
+    },
+    "target": "es2020",
+    "module": "esnext"
+  }
+}
+`,
+    [resolve(__dirname, "fixtures", "extends-1", "tsconfig.other.json")]: `{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "other-dist",
+    "paths": {
+      "models/*": ["./src/models/*"],
+      "services/*": ["./src/services/*"],
+      "shared/*": ["./src/shared/*"]
+    }
+  },
+  "include": ["other-src/**/*"]
+}
+`,
+  });
+});
+
 test("integration - project references fixture", () => {
   const prPath = resolve(__dirname, "fixtures", "project-references", "tsconfig.json");
   const logger = createTestLogger();
@@ -62,8 +93,27 @@ test("integration - project references fixture", () => {
 }
 `;
 
+  const expectedShared = `{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@shared/utils": ["./src/packages/shared/src/utils"],
+      "@shared/types": ["./src/packages/shared/src/types"]
+    }
+  },
+  "include": ["src/**/*"]
+}
+`;
+
   assert.equal(prEdited[basePath], expectedBase);
   assert.equal(prEdited[serverPath], expectedServer);
+  assert.equal(
+    prEdited[resolve(__dirname, "fixtures", "project-references", "packages", "shared", "tsconfig.json")],
+    expectedShared,
+  );
+  assert.equal(Object.keys(prEdited).length, 3, "Should only edit base and server tsconfigs");
 });
 
 test("integration - sample project fixture", () => {
@@ -89,6 +139,7 @@ test("integration - sample project fixture", () => {
 }
 `;
   assert.equal(sampleEdited[samplePath], expectedSample);
+  assert.equal(Object.keys(sampleEdited).length, 1, "Should only edit the sample tsconfig");
 });
 
 test("integration - extends node_modules fixture", () => {
@@ -124,6 +175,7 @@ test("integration - dot fixture", () => {
 }
 `;
   assert.equal(dotEdited[dotPath], expectedDot);
+  assert.equal(Object.keys(dotEdited).length, 1, "Should only edit the dot tsconfig");
 });
 
 test("integration - removeBaseUrl multiple baseUrl fixture 1", () => {
@@ -191,4 +243,5 @@ test("integration - extends without options fixture", () => {
 }
 `;
   assert.equal(edited[basePath], expectedBase);
+  assert.equal(Object.keys(edited).length, 1, "Should only edit the base tsconfig");
 });

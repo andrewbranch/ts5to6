@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import fs from "node:fs";
 import { ConfigStore } from "../src/configStore.ts";
 import { getAddWildcardPathsEdits } from "../src/getResolutionUsesBaseUrlFixes.ts";
 import { applyEdits } from "./utils.ts";

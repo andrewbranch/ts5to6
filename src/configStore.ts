@@ -266,25 +266,22 @@ export class ConfigStore {
         && (prop.name as StringLiteral).text === "compilerOptions",
     );
 
-    if (!compilerOptionsProperty || compilerOptionsProperty.initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
-      tsconfig.effectivePaths = false;
-      return undefined;
-    }
+    if (compilerOptionsProperty && compilerOptionsProperty.initializer.kind === SyntaxKind.ObjectLiteralExpression) {
+      const compilerOptions = compilerOptionsProperty.initializer as ObjectLiteralExpression;
+      const pathsProperty = compilerOptions.properties.find(
+        (prop): prop is PropertyAssignment =>
+          prop.kind === SyntaxKind.PropertyAssignment
+          && prop.name?.kind === SyntaxKind.StringLiteral
+          && (prop.name as StringLiteral).text === "paths"
+          && prop.initializer.kind === SyntaxKind.ObjectLiteralExpression,
+      );
 
-    const compilerOptions = compilerOptionsProperty.initializer as ObjectLiteralExpression;
-    const pathsProperty = compilerOptions.properties.find(
-      (prop): prop is PropertyAssignment =>
-        prop.kind === SyntaxKind.PropertyAssignment
-        && prop.name?.kind === SyntaxKind.StringLiteral
-        && (prop.name as StringLiteral).text === "paths"
-        && prop.initializer.kind === SyntaxKind.ObjectLiteralExpression,
-    );
-
-    if (pathsProperty) {
-      return tsconfig.effectivePaths = {
-        value: pathsProperty.initializer as ObjectLiteralExpression,
-        definedIn: tsconfig,
-      };
+      if (pathsProperty) {
+        return tsconfig.effectivePaths = {
+          value: pathsProperty.initializer as ObjectLiteralExpression,
+          definedIn: tsconfig,
+        };
+      }
     }
 
     const extendedConfigs = this.getExtendedConfigs(tsconfig);

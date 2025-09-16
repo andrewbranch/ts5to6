@@ -1,5 +1,5 @@
 import { glob } from "glob";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { ConfigStore } from "./configStore.ts";
 import { getPathsFixes } from "./getPathsFixes.ts";
@@ -10,7 +10,7 @@ import { Logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
 import type { TextEdit, TSConfig } from "./types.ts";
 import { createCopiedPathsEdits } from "./utils.ts";
-import { writeFixes } from "./writeFixes.ts";
+import { applyEditsToConfigs } from "./writeFixes.ts";
 
 function findWorkspaceRoot(tsconfigPath: string): string {
   let currentDir = dirname(tsconfigPath);
@@ -27,7 +27,7 @@ function findWorkspaceRoot(tsconfigPath: string): string {
   return dirname(tsconfigPath);
 }
 
-export default async function fixBaseURL(path: string, writeLn?: (msg: any) => void): Promise<void> {
+export async function fixBaseURL(path: string, writeLn?: (msg: any) => void): Promise<Record<string, string>> {
   const { logger, tsconfigPath, workspaceRoot } = setup(path, writeLn);
 
   // Discover any additional tsconfigs that extend files we're about to modify
@@ -37,10 +37,10 @@ export default async function fixBaseURL(path: string, writeLn?: (msg: any) => v
     absolute: true,
   });
 
-  fixBaseURLWorker(tsconfigPath, globbedTsconfigPaths, logger);
+  return fixBaseURLWorker(tsconfigPath, globbedTsconfigPaths, logger);
 }
 
-export function fixBaseURLSync(path: string, writeLn?: (msg: any) => void): void {
+export function fixBaseURLSync(path: string, writeLn?: (msg: any) => void): Record<string, string> {
   const { logger, tsconfigPath, workspaceRoot } = setup(path, writeLn);
 
   // Discover any additional tsconfigs that extend files we're about to modify
@@ -50,7 +50,7 @@ export function fixBaseURLSync(path: string, writeLn?: (msg: any) => void): void
     absolute: true,
   });
 
-  fixBaseURLWorker(tsconfigPath, globbedTsconfigPaths, logger);
+  return fixBaseURLWorker(tsconfigPath, globbedTsconfigPaths, logger);
 }
 
 function setup(
@@ -74,7 +74,11 @@ function setup(
   return { logger, tsconfigPath, workspaceRoot };
 }
 
-function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], logger: Logger): void {
+function fixBaseURLWorker(
+  tsconfigPath: string,
+  globbedTsconfigPaths: string[],
+  logger: Logger,
+): Record<string, string> {
   // Find projects and collect tsconfigs
   const configStore = new ConfigStore();
   configStore.loadProjects(tsconfigPath);
@@ -190,7 +194,7 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
 
   if (allFixes.length === 0) {
     logger.success("No changes needed!");
-    return;
+    return {};
   }
 
   // Group fixes by file for reporting
@@ -201,10 +205,6 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
     fixesByFile.set(fix.fileName, fixes);
   }
 
-  logger.step("Applying changes...");
-  writeFixes(allFixes);
-
-  // Final report
   logger.subheading("Migration Complete!");
   logger.success(`Modified ${logger.number(fixesByFile.size)} file${fixesByFile.size === 1 ? "" : "s"}:`);
 
@@ -229,6 +229,11 @@ function fixBaseURLWorker(tsconfigPath: string, globbedTsconfigPaths: string[], 
       }
     }
   });
+
+  logger.step("Computing changes...");
+  // Compute the final content map; callers (CLI/tests) can decide to persist
+  const edited = applyEditsToConfigs(configStore, allFixes);
+  return edited;
 }
 
 function resolveTsconfig(path: string) {
@@ -237,4 +242,14 @@ function resolveTsconfig(path: string) {
     return abs;
   }
   return resolve(abs, "tsconfig.json");
+}
+
+// For CLI usage we still export a default function that writes to disk
+export default async function fixBaseURLCli(path: string, writeLn?: (msg: any) => void): Promise<void> {
+  const edited = await fixBaseURL(path, writeLn);
+  if (!edited) return;
+  for (const [fileName, content] of Object.entries(edited)) {
+    // Write files to disk
+    writeFileSync(fileName, content, "utf8");
+  }
 }

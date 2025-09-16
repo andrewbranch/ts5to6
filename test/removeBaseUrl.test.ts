@@ -1,12 +1,11 @@
+import { parseConfigFileTextToJson, readJsonConfigFile } from "#typescript";
 import assert from "node:assert/strict";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseConfigFileTextToJson, readJsonConfigFile } from "#typescript";
-import { ConfigStore } from "../src/configStore.ts";
 import { getRemoveBaseUrlEdits } from "../src/removeBaseUrl.ts";
 import type { TSConfig } from "../src/types.ts";
-import { applyEdits, applyEditsToConfigs } from "./utils.ts";
+import { applyEdits } from "./utils.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -229,54 +228,4 @@ test("getRemoveBaseUrlEdits - trailing comma detection issue", () => {
   assert.equal(result, expected);
 });
 
-test("getRemoveBaseUrlEdits - multiple baseUrl fixture 1", () => {
-  const tsconfigPath = resolve(__dirname, "fixtures", "multiple-baseurl-1", "tsconfig.json");
-  const configStore = new ConfigStore();
-  configStore.loadProjects(tsconfigPath);
-  const fixes = getRemoveBaseUrlEdits(configStore.getConfigs().containsBaseUrl);
-  const fixed = applyEditsToConfigs(configStore, fixes);
-  assert.deepEqual(fixed, {
-    [resolve(__dirname, "fixtures", "multiple-baseurl-1", "tsconfig.json")]: `{
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-  }
-}
-`,
-    [resolve(__dirname, "fixtures", "multiple-baseurl-1", "tsconfig.base.json")]: `{
-  "extends": "@tsconfig/docusaurus/tsconfig.json",
-  "compilerOptions": {
-    "baseUrl": null
-  }
-}
-`,
-  });
-});
-
-test("getRemoveBaseUrlEdits - multiple baseUrl fixture 2", () => {
-  const tsconfigPath = resolve(__dirname, "fixtures", "multiple-baseurl-2", "tsconfig.json");
-  const configStore = new ConfigStore();
-  configStore.loadProjects(tsconfigPath);
-  const fixes = getRemoveBaseUrlEdits(configStore.getConfigs().containsBaseUrl);
-  const fixed = applyEditsToConfigs(configStore, fixes);
-  assert.deepEqual(fixed, {
-    [resolve(__dirname, "fixtures", "multiple-baseurl-2", "tsconfig.json")]: `{
-  "extends": "./tsconfig.other.json",
-  "compilerOptions": {
-  }
-}
-`,
-    [resolve(__dirname, "fixtures", "multiple-baseurl-2", "tsconfig.other.json")]: `{
-  "extends": ["@tsconfig/docusaurus/tsconfig.json", "./tsconfig.base.json"],
-  "compilerOptions": {
-  }
-}
-`,
-    [resolve(__dirname, "fixtures", "multiple-baseurl-2", "tsconfig.base.json")]: `{
-  "extends": "@tsconfig/docusaurus/tsconfig.json",
-  "compilerOptions": {
-    "baseUrl": null
-  }
-}
-`,
-  });
-});
+// Fixture-based tests moved to integration.test.ts

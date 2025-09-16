@@ -133,7 +133,7 @@ function printHelpAndReturn(code: number) {
   return code;
 }
 
-export async function cli(argv: string[]): Promise<number> {
+export default async function cli(argv: string[]): Promise<number> {
   const commandName = undefined; // placeholder for future subcommand parsing
   const command = resolveCommand(commandName)!;
   const { values, positionals } = parseArgs({ ...buildParseConfig(command), args: argv.slice(2) });

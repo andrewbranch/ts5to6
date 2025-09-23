@@ -7,8 +7,8 @@ import ts, {
   SyntaxKind,
   type TsConfigSourceFile,
 } from "#typescript";
-import { dirname, relative, resolve } from "node:path";
-import type { EditDescription, ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
+import { dirname, join, relative, resolve } from "node:path";
+import type { ConfigValue, EditDescription, ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
 
 export const getCanonicalFileName = ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames);
 
@@ -147,7 +147,10 @@ export function createCopiedPathsEdits(
 
   // Optionally include wildcard mapping
   if (includeWildcard) {
-    extendedPaths["*"] = ["./*"];
+    if (!tsconfig.effectiveBaseUrlStack) {
+      throw new Error("Cannot add wildcard path mapping when baseUrl is not set");
+    }
+    extendedPaths["*"] = [getPathMappingText(tsconfig, tsconfig.effectiveBaseUrlStack)];
   }
 
   const buildPropertyText = (indent: string) => {
@@ -185,4 +188,15 @@ export function createCopiedPathsEdits(
   }
 
   return undefined;
+}
+
+export function getPathMappingText(
+  tsconfig: TSConfig,
+  effectiveBaseUrlStack: readonly ConfigValue<StringLiteral>[],
+): string {
+  const baseUrlText = effectiveBaseUrlStack[0].value.text;
+  const baseUrlAbsolute = resolve(dirname(effectiveBaseUrlStack[0].definedIn.fileName), baseUrlText);
+  const baseUrlRelative = normalizeSlashes(relative(dirname(tsconfig.fileName), baseUrlAbsolute));
+  const mappingValue = join(baseUrlRelative, "*");
+  return mappingValue.startsWith("./") || mappingValue.startsWith("../") ? mappingValue : `./${mappingValue}`;
 }

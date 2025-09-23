@@ -182,7 +182,7 @@ function fixBaseURLWorker(
   }
   const resolutionFixes: TextEdit[] = [];
   for (const target of resolutionTargets.values()) {
-    const edits = getAddWildcardPathsEdits(target);
+    const edits = getAddWildcardPathsEdits(target, configStore);
     if (edits) resolutionFixes.push(...edits);
   }
 

@@ -1,7 +1,15 @@
-import { type ObjectLiteralExpression, type PropertyAssignment, type StringLiteral, SyntaxKind } from "#typescript";
+import {
+  normalizeSlashes,
+  type ObjectLiteralExpression,
+  type PropertyAssignment,
+  type StringLiteral,
+  SyntaxKind,
+} from "#typescript";
+import { dirname, join, relative, resolve } from "node:path";
 import type { ConfigStore } from "./configStore.ts";
 import type { ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
 import { createCopiedPathsEdits, findCompilerOptionsProperty, insertPropertyIntoObject } from "./utils.ts";
+import { getPathMappingText } from "./utils.ts";
 
 /**
  * Selects the tsconfig file that should be edited to add a `paths` entry
@@ -33,7 +41,7 @@ export function selectTsconfigForAddingPaths(project: ProjectTSConfig, store: Co
 /**
  * Generates TextEdits to insert a wildcard `paths` mapping (`"*": ["./*"]`) into a tsconfig.
  */
-export function getAddWildcardPathsEdits(tsconfig: TSConfig): TextEdit[] | undefined {
+export function getAddWildcardPathsEdits(tsconfig: TSConfig, store: ConfigStore): TextEdit[] | undefined {
   // Don't attempt to modify files inside node_modules
   if (tsconfig.fileName.includes("/node_modules/")) {
     return undefined;
@@ -42,9 +50,7 @@ export function getAddWildcardPathsEdits(tsconfig: TSConfig): TextEdit[] | undef
   const sourceFile = tsconfig.file;
   const rootExpression = sourceFile.statements[0]?.expression as ObjectLiteralExpression | undefined;
   const compilerOptionsObject = findCompilerOptionsProperty(sourceFile);
-
-  // Helper to create the canonical mapping text
-  const mappingText = `"*": ["./*"]`;
+  const mappingText = getPathMappingText(tsconfig, store.getEffectiveBaseUrlStack(tsconfig)!);
 
   // If the compilerOptions object does not exist, create it with paths
   if (!compilerOptionsObject) {
@@ -56,7 +62,7 @@ export function getAddWildcardPathsEdits(tsconfig: TSConfig): TextEdit[] | undef
     return insertPropertyIntoObject(
       sourceFile.fileName,
       rootExpression,
-      `"compilerOptions": { "paths": { ${mappingText} } }`,
+      `"compilerOptions": { "paths": { "*": ["${mappingText}"] } }`,
       sourceFile,
     );
   }
@@ -85,8 +91,8 @@ export function getAddWildcardPathsEdits(tsconfig: TSConfig): TextEdit[] | undef
     }
 
     // Insert the `"*"` mapping into the paths object (helper handles empty/non-empty)
-    return insertPropertyIntoObject(sourceFile.fileName, pathsObject, `"*": ["./*"]`, sourceFile);
-  } else if (tsconfig.effectivePaths && tsconfig.effectivePaths.definedIn !== tsconfig) {
+    return insertPropertyIntoObject(sourceFile.fileName, pathsObject, `"*": ["${mappingText}"]`, sourceFile);
+  } else if (store.getEffectivePaths(tsconfig)?.definedIn !== tsconfig) {
     // If paths were inherited from an extended config (e.g. in node_modules), copy the
     // entries into this config and transform their targets so they're relative to
     // this tsconfig file. Delegate to shared helper which returns TextEdits.

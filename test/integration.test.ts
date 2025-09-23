@@ -81,7 +81,7 @@ test("integration - project references fixture", () => {
     "paths": {
       "@shared/utils": ["../shared/src/utils"],
       "@shared/types": ["../shared/src/types"],
-      "*": ["./*"]
+      "*": ["../../*"]
     }
   },
   "include": ["src/**/*"],
@@ -127,8 +127,8 @@ test("integration - sample project fixture", () => {
     "moduleResolution": "node",
     "paths": {
       "components/*": ["./src/components/*"],
-      "utils/*": ["./src/utils/*"],
-      "types": ["./src/types/index"]
+      "types": ["./src/types/index"],
+      "*": ["./src/*"]
     },
     "strict": true,
     "esModuleInterop": true,

@@ -6,7 +6,6 @@
     "baseUrl": "src",
     "paths": {
       "components/*": ["components/*"],
-      "utils/*": ["utils/*"],
       "types": ["./types/index"]
     },
     "strict": true,

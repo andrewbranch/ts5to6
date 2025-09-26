@@ -2,15 +2,17 @@ import { glob } from "glob";
 import { existsSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { ConfigStore } from "./configStore.ts";
+import { getRootDirEdits } from "./fixRootDir.ts";
 import { getPathsFixes } from "./getPathsFixes.ts";
 import { getPathsProblems } from "./getPathsProblems.ts";
+import { getProjectsWithProgramIssues } from "./getProgramLevelIssues.ts";
 import { getAddWildcardPathsEdits, selectTsconfigForAddingPaths } from "./getResolutionUsesBaseUrlFixes.ts";
-import { getProjectsUsingBaseUrlForResolution } from "./getResolutionUsesBaseUrlProblems.ts";
 import { Logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
-import type { TextEdit, TSConfig } from "./types.ts";
+import type { IssueType, TextEdit, TSConfig } from "./types.ts";
 import { createCopiedPathsEdits } from "./utils.ts";
 import { applyEditsToConfigs } from "./writeFixes.ts";
+import type { CompilerOptions } from "#typescript";
 
 function findWorkspaceRoot(tsconfigPath: string): string {
   let currentDir = dirname(tsconfigPath);
@@ -27,7 +29,12 @@ function findWorkspaceRoot(tsconfigPath: string): string {
   return dirname(tsconfigPath);
 }
 
-export async function fixBaseURL(path: string, writeLn?: (msg: any) => void): Promise<Record<string, string>> {
+export async function fixIssue(
+  path: string,
+  commandLineOptions?: CompilerOptions,
+  issueType?: IssueType,
+  writeLn?: (msg: any) => void,
+): Promise<Record<string, string>> {
   const { logger, tsconfigPath, workspaceRoot } = setup(path, writeLn);
 
   // Discover any additional tsconfigs that extend files we're about to modify
@@ -37,10 +44,15 @@ export async function fixBaseURL(path: string, writeLn?: (msg: any) => void): Pr
     absolute: true,
   });
 
-  return fixBaseURLWorker(tsconfigPath, globbedTsconfigPaths, logger);
+  return fixIssueWorker(tsconfigPath, globbedTsconfigPaths, commandLineOptions, issueType, logger);
 }
 
-export function fixBaseURLSync(path: string, writeLn?: (msg: any) => void): Record<string, string> {
+export function fixIssueSync(
+  path: string,
+  commandLineOptions?: CompilerOptions,
+  issueType?: IssueType,
+  writeLn?: (msg: any) => void,
+): Record<string, string> {
   const { logger, tsconfigPath, workspaceRoot } = setup(path, writeLn);
 
   // Discover any additional tsconfigs that extend files we're about to modify
@@ -50,7 +62,7 @@ export function fixBaseURLSync(path: string, writeLn?: (msg: any) => void): Reco
     absolute: true,
   });
 
-  return fixBaseURLWorker(tsconfigPath, globbedTsconfigPaths, logger);
+  return fixIssueWorker(tsconfigPath, globbedTsconfigPaths, commandLineOptions, issueType, logger);
 }
 
 function setup(
@@ -74,17 +86,80 @@ function setup(
   return { logger, tsconfigPath, workspaceRoot };
 }
 
-function fixBaseURLWorker(
+function fixIssueWorker(
   tsconfigPath: string,
   globbedTsconfigPaths: string[],
+  commandLineOptions: CompilerOptions | undefined,
+  issueType: IssueType | undefined,
   logger: Logger,
 ): Record<string, string> {
   // Find projects and collect tsconfigs
-  const configStore = new ConfigStore();
+  const configStore = new ConfigStore(commandLineOptions);
   configStore.loadProjects(tsconfigPath);
 
-  configStore.addAffectedConfigsFromWorkspace(globbedTsconfigPaths);
+  issueType ??= "baseUrl";
+  configStore.addAffectedConfigsFromWorkspace(globbedTsconfigPaths, issueType);
 
+  let allFixes: TextEdit[];
+  switch (issueType) {
+    case "baseUrl":
+      allFixes = fixBaseURLWorker(configStore, logger);
+      break;
+    case "rootDir":
+      allFixes = fixRootDirWorker(configStore, logger);
+      break;
+    default:
+      throw new Error("Not implemented " + issueType);
+  }
+
+  if (allFixes.length === 0) {
+    logger.success("No changes needed!");
+    return {};
+  }
+
+  // Group fixes by file for reporting
+  const fixesByFile = new Map<string, TextEdit[]>();
+  for (const fix of allFixes) {
+    const fixes = fixesByFile.get(fix.fileName) || [];
+    fixes.push(fix);
+    fixesByFile.set(fix.fileName, fixes);
+  }
+
+  logger.subheading("Migration Complete!");
+  logger.success(`Modified ${logger.number(fixesByFile.size)} file${fixesByFile.size === 1 ? "" : "s"}:`);
+
+  logger.withIndent(() => {
+    for (const [fileName, fixes] of fixesByFile) {
+      const relativePath = relative(process.cwd(), fileName);
+
+      // Collect counts for non-empty descriptions for the file
+      const descCounts = new Map<string, number>();
+      for (const f of fixes) {
+        if (!f.description) continue;
+        descCounts.set(f.description, (descCounts.get(f.description) || 0) + 1);
+      }
+
+      logger.success(logger.file(relativePath));
+      if (descCounts.size > 0) {
+        logger.withIndent(() => {
+          for (const [desc, count] of descCounts) {
+            logger.list([`${desc} (${logger.number(count)}x)`]);
+          }
+        });
+      }
+    }
+  });
+
+  logger.step("Computing changes...");
+  // Compute the final content map; callers (CLI/tests) can decide to persist
+  const edited = applyEditsToConfigs(configStore, allFixes);
+  return edited;
+}
+
+function fixBaseURLWorker(
+  configStore: ConfigStore,
+  logger: Logger,
+): TextEdit[] {
   const configs = configStore.getConfigs();
   logger.info(`Found ${logger.number(configs.tsconfigCount)} tsconfig file${configs.tsconfigCount === 1 ? "" : "s"}`);
   logger.info(
@@ -137,7 +212,7 @@ function fixBaseURLWorker(
 
   // Analyze which projects actually use baseUrl for module resolution
   logger.step("Analyzing module resolution dependencies...");
-  const projectsUsingBaseUrl = getProjectsUsingBaseUrlForResolution(configs.affectedProjects);
+  const projectsUsingBaseUrl = getProjectsWithProgramIssues(configs.affectedProjects, "baseUrl");
 
   if (projectsUsingBaseUrl.length === 0) {
     logger.success("No projects rely on baseUrl for module resolution");
@@ -187,50 +262,54 @@ function fixBaseURLWorker(
   }
 
   const baseUrlFixes = getRemoveBaseUrlEdits(configs.containsBaseUrl);
-  const allFixes = [...pathFixes, ...resolutionFixes, ...baseUrlFixes];
+  return [...pathFixes, ...resolutionFixes, ...baseUrlFixes];
+}
 
-  if (allFixes.length === 0) {
-    logger.success("No changes needed!");
-    return {};
+function fixRootDirWorker(
+  configStore: ConfigStore,
+  logger: Logger,
+): TextEdit[] {
+  const configs = configStore.getConfigs();
+  logger.info(`Found ${logger.number(configs.tsconfigCount)} tsconfig file${configs.tsconfigCount === 1 ? "" : "s"}`);
+  if (configs.affectedProjects.length > 0) {
+    logger.info(
+      `${logger.number(configs.affectedProjects.length)} project${
+        configs.affectedProjects.length === 1 ? "" : "s"
+      } may be affected by ${logger.code("rootDir")} change:`,
+    );
+    logger.withIndent(() => {
+      for (const proj of configs.affectedProjects) {
+        logger.list([logger.file(relative(process.cwd(), proj.fileName))]);
+      }
+    });
+  } else {
+    logger.success("No projects that have change in rootDir found");
   }
 
-  // Group fixes by file for reporting
-  const fixesByFile = new Map<string, TextEdit[]>();
-  for (const fix of allFixes) {
-    const fixes = fixesByFile.get(fix.fileName) || [];
-    fixes.push(fix);
-    fixesByFile.set(fix.fileName, fixes);
+  logger.step("Analyzing projects...");
+  const projectsWithRootDirIssues = getProjectsWithProgramIssues(configs.affectedProjects, "rootDir");
+
+  if (projectsWithRootDirIssues.length === 0) {
+    logger.success("Did not find projects that have issues with change in rootDir");
+  } else {
+    logger.warn(
+      `${logger.number(projectsWithRootDirIssues.length)} project${
+        projectsWithRootDirIssues.length === 1 ? "" : "s"
+      } have issues with change to rootDir:`,
+    );
+    logger.withIndent(() => {
+      for (const project of projectsWithRootDirIssues) {
+        logger.list([logger.file(relative(process.cwd(), project.fileName))]);
+      }
+    });
   }
 
-  logger.subheading("Migration Complete!");
-  logger.success(`Modified ${logger.number(fixesByFile.size)} file${fixesByFile.size === 1 ? "" : "s"}:`);
-
-  logger.withIndent(() => {
-    for (const [fileName, fixes] of fixesByFile) {
-      const relativePath = relative(process.cwd(), fileName);
-
-      // Collect counts for non-empty descriptions for the file
-      const descCounts = new Map<string, number>();
-      for (const f of fixes) {
-        if (!f.description) continue;
-        descCounts.set(f.description, (descCounts.get(f.description) || 0) + 1);
-      }
-
-      logger.success(logger.file(relativePath));
-      if (descCounts.size > 0) {
-        logger.withIndent(() => {
-          for (const [desc, count] of descCounts) {
-            logger.list([`${desc} (${logger.number(count)}x)`]);
-          }
-        });
-      }
-    }
-  });
-
-  logger.step("Computing changes...");
-  // Compute the final content map; callers (CLI/tests) can decide to persist
-  const edited = applyEditsToConfigs(configStore, allFixes);
-  return edited;
+  const allFixes: TextEdit[] = [];
+  for (const project of projectsWithRootDirIssues) {
+    const edits = getRootDirEdits(project, configStore);
+    if (edits) allFixes.push(...edits);
+  }
+  return allFixes;
 }
 
 function resolveTsconfig(path: string) {
@@ -242,8 +321,12 @@ function resolveTsconfig(path: string) {
 }
 
 // For CLI usage we still export a default function that writes to disk
-export default async function fixBaseURLCli(path: string, writeLn?: (msg: any) => void): Promise<void> {
-  const edited = await fixBaseURL(path, writeLn);
+export default async function fixIssueCli(
+  path: string,
+  issueType?: IssueType,
+  writeLn?: (msg: any) => void,
+): Promise<void> {
+  const edited = await fixIssue(path, undefined, issueType, writeLn);
   if (!edited) return;
   for (const [fileName, content] of Object.entries(edited)) {
     // Write files to disk

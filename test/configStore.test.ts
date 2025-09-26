@@ -7,7 +7,7 @@ import { ConfigStore } from "../src/configStore.ts";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 test("ConfigStore resolves extended baseUrl when no options are present", () => {
-  const tsconfigPath = resolve(__dirname, "fixtures", "extends-without-options", "tsconfig.json");
+  const tsconfigPath = resolve(__dirname, "fixtures", "baseUrl", "extends-without-options", "tsconfig.json");
   const store = new ConfigStore();
   store.loadProjects(tsconfigPath);
 
@@ -20,4 +20,15 @@ test("ConfigStore resolves extended baseUrl when no options are present", () => 
     baseUrlStack![0].definedIn.fileName.endsWith("tsconfig.base.json"),
     "The top of the baseUrl stack should be the base config",
   );
+});
+
+test("ConfigStore resolves extended config when no options are present", () => {
+  const tsconfigPath = resolve(__dirname, "fixtures", "rootDir", "extends-without-options", "tsconfig.json");
+  const store = new ConfigStore();
+  store.loadProjects(tsconfigPath);
+
+  const projectConfig = store.getProjectConfig(tsconfigPath);
+  assert(projectConfig, "Project config should be loaded");
+
+  assert(store.hasPotentialChangeInRootDir(projectConfig!), "Should have potential issue");
 });

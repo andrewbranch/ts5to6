@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { Logger } from "./logger.ts";
-import fixBaseURL from "./main.ts";
+import fixIssue from "./main.ts";
 
 // Declarative option (flag) definition
 interface OptionDescriptor {
@@ -37,13 +37,25 @@ const rootCommand: CommandSpec = {
   options: [
     { name: "help", short: "h", type: "boolean", description: "Show help and usage information" },
     { name: "version", short: "v", type: "boolean", description: "Show the version number" },
+    {
+      name: "rootDir",
+      short: "r",
+      type: "boolean",
+      description: "Set rootDir in config to what it would have computed by typescript@5.9",
+    },
+    {
+      name: "baseUrl",
+      short: "b",
+      type: "boolean",
+      description: "Migrate TypeScript projects away from baseUrl usage",
+    },
   ],
-  run: async ({ positionals }) => {
+  run: async ({ values, positionals }) => {
     // Placeholder business logic; show help if nothing supplied for now.
     if (positionals.length === 0) return printHelpAndReturn(0);
 
     try {
-      await fixBaseURL(positionals[0]);
+      await fixIssue(positionals[0], values.rootDir ? "rootDir" : "baseUrl");
       return 0;
     } catch (error) {
       new Logger((msg) => console.log(msg)).error(
@@ -121,9 +133,12 @@ function renderHelp(commandName?: string): string {
   }
   lines.push("");
   lines.push(chalk.dim("Examples:"));
-  lines.push(chalk.dim("  ts-fix-baseurl .                    # Fix current directory"));
-  lines.push(chalk.dim("  ts-fix-baseurl ./tsconfig.json     # Fix specific tsconfig"));
-  lines.push(chalk.dim("  ts-fix-baseurl my-project/          # Fix project directory"));
+  lines.push(chalk.dim("  ts-fix-baseurl .                              # Fix current directory"));
+  lines.push(chalk.dim("  ts-fix-baseurl ./tsconfig.json                # Fix specific tsconfig"));
+  lines.push(chalk.dim("  ts-fix-baseurl my-project/                    # Fix project directory"));
+  lines.push(chalk.dim("  ts-fix-baseurl --rootDir .                    # Fix current directory with the rootDir"));
+  lines.push(chalk.dim("  ts-fix-baseurl --rootDir ./tsconfig.json      # Fix specific tsconfig with the rootDir"));
+  lines.push(chalk.dim("  ts-fix-baseurl --rootDir my-project/          # Fix project directory with the rootDir"));
   lines.push("");
   return lines.join("\n");
 }
@@ -149,7 +164,5 @@ export default async function cli(argv: string[]): Promise<number> {
   return result;
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
-  const code = await cli(process.argv);
-  process.exit(code);
-}
+const code = await cli(process.argv);
+process.exit(code);

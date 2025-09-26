@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.other.json",
+  "include": ["src/**/*"],
+  "compilerOptions": {
+    "rootDir": null
+  }
+}

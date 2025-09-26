@@ -8,7 +8,11 @@ import ts, {
   type TsConfigSourceFile,
 } from "#typescript";
 import { dirname, join, relative, resolve } from "node:path";
-import type { ConfigValue, EditDescription, ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
+import type { ConfigValue, EditDescription, ExtendedConfig, ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
+
+export function useCaseSensitiveFileNames() {
+  return ts.sys.useCaseSensitiveFileNames;
+}
 
 export const getCanonicalFileName = ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames);
 
@@ -18,6 +22,10 @@ export function toPath(fileName: string): string {
 
 export function isProjectTSConfig(tsconfig: TSConfig): tsconfig is ProjectTSConfig {
   return "parsed" in tsconfig && tsconfig.parsed != undefined;
+}
+
+export function isExtendedTSConfig(tsconfig: TSConfig): tsconfig is ExtendedConfig {
+  return "extended" in tsconfig && tsconfig.extended != undefined;
 }
 
 export function insertPropertyIntoObject(
@@ -197,6 +205,6 @@ export function getPathMappingText(
   const baseUrlText = effectiveBaseUrlStack[0].value.text;
   const baseUrlAbsolute = resolve(dirname(effectiveBaseUrlStack[0].definedIn.fileName), baseUrlText);
   const baseUrlRelative = normalizeSlashes(relative(dirname(tsconfig.fileName), baseUrlAbsolute));
-  const mappingValue = join(baseUrlRelative, "*");
+  const mappingValue = normalizeSlashes(join(baseUrlRelative, "*"));
   return mappingValue.startsWith("./") || mappingValue.startsWith("../") ? mappingValue : `./${mappingValue}`;
 }

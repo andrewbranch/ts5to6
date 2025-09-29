@@ -12,7 +12,7 @@ test("getProjectsUsingBaseUrlForResolution - project-references fixture", () => 
   const configStore = new ConfigStore();
   configStore.loadProjects(tsconfigPath);
 
-  const configs = configStore.getConfigs();
+  const configs = configStore.getConfigsWithPotentialBaseUrlIssues();
 
   // Should have 3 affected projects: client, server, and shared
   assert.equal(configs.affectedProjects.length, 3, "Should have 3 affected projects");

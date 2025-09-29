@@ -40,10 +40,13 @@ const parseConfigHost: ParseConfigFileHost = {
 export interface Configs {
   tsconfigCount: number;
   projectCount: number;
+  affectedProjects: ProjectTSConfig[];
+}
+
+export interface ConfigsWithBaseUrlIssues extends Configs {
   containsPaths: TSConfig[];
   inheritsPaths: ProjectTSConfig[];
   containsBaseUrl: TSConfig[];
-  affectedProjects: ProjectTSConfig[];
 }
 
 export class ConfigStore {
@@ -55,7 +58,7 @@ export class ConfigStore {
     this.commandLineOptions = commandLineOptions;
   }
 
-  getConfigs(): Configs {
+  getConfigsWithPotentialBaseUrlIssues(): ConfigsWithBaseUrlIssues {
     const containsBaseUrl = new Map<string, TSConfig>();
     const containsPaths = new Map<string, TSConfig>();
     const inheritsPaths = new Map<string, ProjectTSConfig>();
@@ -85,6 +88,21 @@ export class ConfigStore {
       containsBaseUrl: Array.from(containsBaseUrl.values()),
       containsPaths: Array.from(containsPaths.values()),
       inheritsPaths: Array.from(inheritsPaths.values()),
+      affectedProjects,
+    };
+  }
+
+  getConfigsWithPotentialRootDirIssues() : Configs {
+    const affectedProjects: ProjectTSConfig[] = [];
+    for (const projectConfig of this.projectConfigs.values()) {
+      if (this.hasPotentialChangeInRootDir(projectConfig)) {
+        affectedProjects.push(projectConfig);
+      }
+    }
+
+    return {
+      tsconfigCount: this.extendedConfigCache.size + this.projectConfigs.size,
+      projectCount: this.projectConfigs.size,
       affectedProjects,
     };
   }

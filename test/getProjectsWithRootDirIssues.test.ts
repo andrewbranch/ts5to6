@@ -12,7 +12,7 @@ test("getProjectsWithRootDirIssues - project-references fixture", () => {
   const configStore = new ConfigStore(undefined);
   configStore.loadProjects(tsconfigPath);
 
-  const configs = configStore.getConfigs();
+  const configs = configStore.getConfigsWithPotentialRootDirIssues();
 
   // Should have 3 affected projects: client, server
   assert.equal(configs.affectedProjects.length, 2, "Should have 2 affected projects");

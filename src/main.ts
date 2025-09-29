@@ -160,7 +160,7 @@ function fixBaseURLWorker(
   configStore: ConfigStore,
   logger: Logger,
 ): TextEdit[] {
-  const configs = configStore.getConfigs();
+  const configs = configStore.getConfigsWithPotentialBaseUrlIssues();
   logger.info(`Found ${logger.number(configs.tsconfigCount)} tsconfig file${configs.tsconfigCount === 1 ? "" : "s"}`);
   logger.info(
     `${logger.number(configs.containsBaseUrl.length)} define${configs.containsBaseUrl.length === 1 ? "s" : ""} ${
@@ -269,7 +269,7 @@ function fixRootDirWorker(
   configStore: ConfigStore,
   logger: Logger,
 ): TextEdit[] {
-  const configs = configStore.getConfigs();
+  const configs = configStore.getConfigsWithPotentialRootDirIssues();
   logger.info(`Found ${logger.number(configs.tsconfigCount)} tsconfig file${configs.tsconfigCount === 1 ? "" : "s"}`);
   if (configs.affectedProjects.length > 0) {
     logger.info(

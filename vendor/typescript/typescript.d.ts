@@ -5907,7 +5907,6 @@ declare namespace ts {
      */
     interface SourceFileLike {
         readonly text: string;
-        languageVariant?: LanguageVariant;
     }
     interface SourceFileLike {
         getLineAndCharacterOfPosition(pos: number): LineAndCharacter;
@@ -9500,6 +9499,7 @@ declare namespace ts {
      */
     function visitEachChild<T extends Node>(node: T | undefined, visitor: Visitor, context: TransformationContext | undefined, nodesVisitor?: typeof visitNodes, tokenVisitor?: Visitor): T | undefined;
     function getTsBuildInfoEmitOutputFilePath(options: CompilerOptions): string | undefined;
+    function getCommonSourceDirectory60(options: CompilerOptions): string | undefined;
     function getOutputFileNames(commandLine: ParsedCommandLine, inputFileName: string, ignoreCase: boolean): readonly string[];
     function createPrinter(printerOptions?: PrinterOptions, handlers?: PrintHandlers): Printer;
     enum ProgramUpdateLevel {

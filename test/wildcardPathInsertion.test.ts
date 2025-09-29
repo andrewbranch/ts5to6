@@ -18,7 +18,7 @@ function loadProject(tsconfigPath: string) {
 }
 
 test("getAddWildcardPathsEdits - paths without trailing comma", () => {
-  const path = resolve(__dirname, "fixtures", "paths-insertion", "paths-no-trailing-comma", "tsconfig.json");
+  const path = resolve(__dirname, "fixtures", "baseUrl", "paths-insertion", "paths-no-trailing-comma", "tsconfig.json");
   const { project, content, store } = loadProject(path);
   const edits = getAddWildcardPathsEdits(project, store);
   assert(edits && edits.length > 0, "Should produce edits");
@@ -37,11 +37,18 @@ test("getAddWildcardPathsEdits - paths without trailing comma", () => {
 });
 
 test("getAddWildcardPathsEdits - paths with trailing comma", () => {
-  const path = resolve(__dirname, "fixtures", "paths-insertion", "paths-with-trailing-comma", "tsconfig.json");
+  const path = resolve(
+    __dirname,
+    "fixtures",
+    "baseUrl",
+    "paths-insertion",
+    "paths-with-trailing-comma",
+    "tsconfig.json",
+  );
   const { project, content, store } = loadProject(path);
   const edits = getAddWildcardPathsEdits(project, store);
   assert(edits && edits.length > 0, "Should produce edits");
-  const updated = applyEdits(content, edits || []);
+  const updated = applyEdits(content, edits || []).replaceAll("\r\n", "\n");
   const expected = `{
   "compilerOptions": {
     "baseUrl": ".",
@@ -51,12 +58,12 @@ test("getAddWildcardPathsEdits - paths with trailing comma", () => {
     }
   }
 }
-`;
+`.replaceAll("\r\n", "\n");
   assert.equal(updated, expected);
 });
 
 test("getAddWildcardPathsEdits - empty paths object", () => {
-  const path = resolve(__dirname, "fixtures", "paths-insertion", "paths-empty", "tsconfig.json");
+  const path = resolve(__dirname, "fixtures", "baseUrl", "paths-insertion", "paths-empty", "tsconfig.json");
   const { project, content, store } = loadProject(path);
   const edits = getAddWildcardPathsEdits(project, store);
   assert(edits && edits.length > 0, "Should produce edits");
@@ -72,7 +79,7 @@ test("getAddWildcardPathsEdits - empty paths object", () => {
 });
 
 test("getAddWildcardPathsEdits - no compilerOptions", () => {
-  const path = resolve(__dirname, "fixtures", "paths-insertion", "no-compiler-options", "tsconfig.json");
+  const path = resolve(__dirname, "fixtures", "baseUrl", "paths-insertion", "no-compiler-options", "tsconfig.json");
   const { project, content, store } = loadProject(path);
   const edits = getAddWildcardPathsEdits(project, store);
   assert(edits && edits.length > 0, "Should produce edits");
@@ -86,7 +93,7 @@ test("getAddWildcardPathsEdits - no compilerOptions", () => {
 });
 
 test("getAddWildcardPathsEdits - trailing comment on last property", () => {
-  const path = resolve(__dirname, "fixtures", "paths-insertion", "paths-with-comments", "tsconfig.json");
+  const path = resolve(__dirname, "fixtures", "baseUrl", "paths-insertion", "paths-with-comments", "tsconfig.json");
   const { project, content, store } = loadProject(path);
   const edits = getAddWildcardPathsEdits(project, store);
   assert(edits && edits.length > 0, "Should produce edits");

@@ -16,7 +16,7 @@ function createTSConfig(fileName: string, content: string): TSConfig {
     fileName,
     raw,
     file,
-  };
+  } as TSConfig;
 }
 
 test("getRemoveBaseUrlEdits - removes baseUrl from middle of object", () => {

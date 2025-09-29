@@ -18,12 +18,12 @@ export function getPathsFixes(problem: PathsProblem): TextEdit[] {
     const absoluteTargetPath = resolve(baseUrl, currentPath);
 
     // Make it relative to the tsconfig directory
-    const relativePath = relative(tsconfigDir, absoluteTargetPath);
+    const relativePath = normalizeSlashes(relative(tsconfigDir, absoluteTargetPath));
 
     // Ensure it starts with ./ if it's not already relative
-    const normalizedRelativePath = normalizeSlashes(
-      relativePath.startsWith("./") || relativePath.startsWith("../") ? relativePath : `./${relativePath}`,
-    );
+    const normalizedRelativePath = relativePath.startsWith("./") || relativePath.startsWith("../")
+      ? relativePath
+      : `./${relativePath}`;
 
     edits.push({
       fileName: tsconfig.fileName,

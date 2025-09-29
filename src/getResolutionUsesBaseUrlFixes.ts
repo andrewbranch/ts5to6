@@ -1,11 +1,4 @@
-import {
-  normalizeSlashes,
-  type ObjectLiteralExpression,
-  type PropertyAssignment,
-  type StringLiteral,
-  SyntaxKind,
-} from "#typescript";
-import { dirname, join, relative, resolve } from "node:path";
+import { type ObjectLiteralExpression, type PropertyAssignment, type StringLiteral, SyntaxKind } from "#typescript";
 import type { ConfigStore } from "./configStore.ts";
 import type { ProjectTSConfig, TextEdit, TSConfig } from "./types.ts";
 import { createCopiedPathsEdits, findCompilerOptionsProperty, insertPropertyIntoObject } from "./utils.ts";

@@ -1,11 +1,23 @@
-import type { ObjectLiteralExpression, ParsedCommandLine, StringLiteral, TsConfigSourceFile } from "#typescript";
+import type {
+  ExtendedConfigCacheEntry,
+  NullLiteral,
+  ObjectLiteralExpression,
+  ParsedCommandLine,
+  StringLiteral,
+  TsConfigSourceFile,
+} from "#typescript";
 
 export interface ConfigValue<T> {
   value: T;
   definedIn: TSConfig;
 }
 
-export interface TSConfig {
+export interface RootDirStack {
+  value: StringLiteral | NullLiteral | undefined;
+  extendedConfigs?: TSConfig[];
+}
+
+export interface TSConfigBase {
   fileName: string;
   raw: any;
   file: TsConfigSourceFile;
@@ -16,11 +28,21 @@ export interface TSConfig {
    */
   effectiveBaseUrlStack?: ConfigValue<StringLiteral>[] | false;
   effectivePaths?: ConfigValue<ObjectLiteralExpression> | false;
+  rootDirStack?: RootDirStack | false;
 }
 
-export interface ProjectTSConfig extends TSConfig {
+export type TSConfig = ProjectTSConfig | ExtendedConfig;
+
+export type RootDirProblem = string;
+
+export interface ProjectTSConfig extends TSConfigBase {
   reason: "entry" | "referenced" | "affected";
   parsed: ParsedCommandLine;
+  rootDirProblem?: RootDirProblem;
+}
+
+export interface ExtendedConfig extends TSConfigBase {
+  extended: ExtendedConfigCacheEntry;
 }
 
 export interface PathsProblem {
@@ -38,7 +60,11 @@ export type EditDescription =
   | "added wildcard path mapping, copied mappings from extended config"
   | "copied mappings from extended config"
   | "removed baseUrl"
-  | "set baseUrl to null to clear value from extended config";
+  | "set baseUrl to null to clear value from extended config"
+  | "set rootDir to new value"
+  | "add rootDir to existing compilerOptions"
+  | "add compilerOptions to add rootDir"
+  | "removed rootDir";
 
 export interface TextEdit {
   fileName: string;

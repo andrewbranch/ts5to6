@@ -1,8 +1,11 @@
 import {
+  type CompilerOptions,
   type ExtendedConfigCacheEntry,
   formatDiagnostic,
   type FormatDiagnosticsHost,
+  type IssueType,
   nodeNextJsonConfigResolver,
+  type NullLiteral,
   type ObjectLiteralExpression,
   type ParseConfigFileHost,
   parseConfigFileTextToJson,
@@ -15,7 +18,7 @@ import {
   type TsConfigSourceFile,
 } from "#typescript";
 import { dirname, extname } from "node:path";
-import type { ConfigValue, ProjectTSConfig, TSConfig } from "./types.ts";
+import type { ConfigValue, ProjectTSConfig, RootDirStack, TSConfig } from "./types.ts";
 import { getCanonicalFileName, isProjectTSConfig, toPath } from "./utils.ts";
 
 const diagnosticFormatHost: FormatDiagnosticsHost = {
@@ -38,17 +41,25 @@ const parseConfigHost: ParseConfigFileHost = {
 export interface Configs {
   tsconfigCount: number;
   projectCount: number;
-  containsPaths: TSConfig[];
-  inheritsPaths: ProjectTSConfig[];
-  containsBaseUrl: TSConfig[];
   affectedProjects: ProjectTSConfig[];
 }
 
+export interface ConfigsWithBaseUrlIssues extends Configs {
+  containsPaths: TSConfig[];
+  inheritsPaths: ProjectTSConfig[];
+  containsBaseUrl: TSConfig[];
+}
+
 export class ConfigStore {
+  commandLineOptions: CompilerOptions | undefined;
   projectConfigs = new Map<string, ProjectTSConfig>();
   extendedConfigCache = new Map<string, ExtendedConfigCacheEntry>();
 
-  getConfigs(): Configs {
+  constructor(commandLineOptions?: CompilerOptions) {
+    this.commandLineOptions = commandLineOptions;
+  }
+
+  getConfigsWithPotentialBaseUrlIssues(): ConfigsWithBaseUrlIssues {
     const containsBaseUrl = new Map<string, TSConfig>();
     const containsPaths = new Map<string, TSConfig>();
     const inheritsPaths = new Map<string, ProjectTSConfig>();
@@ -82,6 +93,21 @@ export class ConfigStore {
     };
   }
 
+  getConfigsWithPotentialRootDirIssues(): Configs {
+    const affectedProjects: ProjectTSConfig[] = [];
+    for (const projectConfig of this.projectConfigs.values()) {
+      if (this.hasPotentialChangeInRootDir(projectConfig)) {
+        affectedProjects.push(projectConfig);
+      }
+    }
+
+    return {
+      tsconfigCount: this.extendedConfigCache.size + this.projectConfigs.size,
+      projectCount: this.projectConfigs.size,
+      affectedProjects,
+    };
+  }
+
   getProjectConfig(fileName: string): TSConfig | undefined {
     const path = toPath(fileName);
     return this.projectConfigs.get(path);
@@ -111,7 +137,7 @@ export class ConfigStore {
       sourceFile,
       parseConfigHost,
       dirname(sourceFile.fileName),
-      undefined,
+      this.commandLineOptions,
       sourceFile.fileName,
       undefined,
       undefined,
@@ -155,6 +181,7 @@ export class ConfigStore {
             fileName: resolved.resolvedModule.resolvedFileName,
             raw: extendedConfig.extendedConfig?.raw,
             file: extendedConfig.extendedResult,
+            extended: extendedConfig,
           };
         }
       }
@@ -175,6 +202,14 @@ export class ConfigStore {
       }
     }
     return undefined;
+  }
+
+  hasPotentialChangeInRootDir(tsconfig: TSConfig): boolean {
+    return !isProjectTSConfig(tsconfig)
+      || tsconfig.parsed.fileNames.length != 0
+        && !tsconfig.parsed.options.rootDir
+        && !tsconfig.parsed.options.composite
+        && !tsconfig.parsed.options.outFile;
   }
 
   getEffectiveBaseUrlStack(tsconfig: TSConfig): ConfigValue<StringLiteral>[] | undefined {
@@ -301,6 +336,48 @@ export class ConfigStore {
     return undefined;
   }
 
+  getRootDirStack(tsconfig: TSConfig): RootDirStack | undefined {
+    if (tsconfig.rootDirStack !== undefined) {
+      return tsconfig.rootDirStack || undefined;
+    }
+
+    const rootExpression = tsconfig.file.statements[0]?.expression;
+    if (!rootExpression || rootExpression.kind !== SyntaxKind.ObjectLiteralExpression) {
+      tsconfig.rootDirStack = false;
+      return undefined;
+    }
+
+    const rootObject = rootExpression as ObjectLiteralExpression;
+    const compilerOptionsProperty = rootObject.properties.find(
+      (prop): prop is PropertyAssignment =>
+        prop.kind === SyntaxKind.PropertyAssignment
+        && prop.name?.kind === SyntaxKind.StringLiteral
+        && (prop.name as StringLiteral).text === "compilerOptions",
+    );
+
+    let rootDirLiteral: StringLiteral | NullLiteral | undefined;
+    if (compilerOptionsProperty && compilerOptionsProperty.initializer.kind === SyntaxKind.ObjectLiteralExpression) {
+      const compilerOptions = compilerOptionsProperty.initializer as ObjectLiteralExpression;
+      const rootDirProperty = compilerOptions.properties.find(
+        (prop): prop is PropertyAssignment =>
+          prop.kind === SyntaxKind.PropertyAssignment
+          && prop.name?.kind === SyntaxKind.StringLiteral
+          && (prop.name as StringLiteral).text === "rootDir",
+      );
+
+      if (
+        rootDirProperty?.initializer.kind === SyntaxKind.StringLiteral
+        || rootDirProperty?.initializer.kind === SyntaxKind.NullKeyword
+      ) {
+        rootDirLiteral = rootDirProperty.initializer as StringLiteral | NullLiteral;
+      }
+    }
+    tsconfig.rootDirStack = { value: rootDirLiteral };
+    tsconfig.rootDirStack.extendedConfigs = this.getExtendedConfigs(tsconfig);
+    tsconfig.rootDirStack.extendedConfigs?.forEach(config => this.getRootDirStack(config));
+    return tsconfig.rootDirStack;
+  }
+
   loadProjects(tsconfigPath: string) {
     const collectReferences = (tsconfigPath: string, reason: ProjectTSConfig["reason"]) => {
       const tsconfig = this.parseTsconfigSourceFileIntoProject(
@@ -326,7 +403,7 @@ export class ConfigStore {
    * - is extended by another config, the user only ever intends to run `tsc` against the
    *   extending config, not the extended one directly.)
    */
-  addAffectedConfigsFromWorkspace(tsconfigPaths: readonly string[]) {
+  addAffectedConfigsFromWorkspace(tsconfigPaths: readonly string[], issueType: IssueType) {
     const originalExtendedConfigCache = new Map(this.extendedConfigCache);
     const candidates = new Map<string, ProjectTSConfig>();
     for (const tsconfigPath of tsconfigPaths) {
@@ -355,12 +432,27 @@ export class ConfigStore {
         continue;
       }
 
-      const effectiveBaseUrl = this.getEffectiveBaseUrlStack(candidate);
-      if (
-        effectiveBaseUrl
-        && (this.projectConfigs.has(toPath(effectiveBaseUrl[0].definedIn.fileName))
-          || originalExtendedConfigCache.has(toPath(effectiveBaseUrl[0].definedIn.fileName)))
-      ) {
+      let addCandidate = false;
+      switch (issueType) {
+        case "baseUrl":
+          const effectiveBaseUrl = this.getEffectiveBaseUrlStack(candidate);
+          if (
+            effectiveBaseUrl
+            && (this.projectConfigs.has(toPath(effectiveBaseUrl[0].definedIn.fileName))
+              || originalExtendedConfigCache.has(toPath(effectiveBaseUrl[0].definedIn.fileName)))
+          ) {
+            addCandidate = true;
+          }
+          break;
+        case "rootDir":
+          addCandidate = this.hasPotentialChangeInRootDir(candidate);
+          break;
+
+        default:
+          throw new Error("Not implemented " + issueType);
+      }
+
+      if (addCandidate) {
         toAdd.set(toPath(candidate.fileName), candidate);
       }
     }

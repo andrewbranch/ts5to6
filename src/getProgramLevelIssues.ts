@@ -1,5 +1,5 @@
-import { createProgram } from "#typescript";
-import type { IssueType, ProjectTSConfig } from "./types.ts";
+import { createProgram, type IssueType } from "#typescript";
+import type { ProjectTSConfig } from "./types.ts";
 
 /**
  * Filters affected projects down to ones that actually use baseUrl for module resolution.
@@ -27,6 +27,7 @@ export function getProjectsWithProgramIssues(
  */
 function projectsWithProgramIssueType(project: ProjectTSConfig, issueType: IssueType): boolean {
   try {
+    project.parsed.options.issueType = issueType;
     // Create a TypeScript program for this project
     // The patched TypeScript library will throw "TS_FIX_BASEURL_SIGNAL" if baseUrl is used for resolution
     createProgram({

@@ -73,5 +73,3 @@ export interface TextEdit {
   end: number;
   description?: EditDescription;
 }
-
-export type IssueType = "baseUrl" | "rootDir" | "types";

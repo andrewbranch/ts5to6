@@ -12,7 +12,7 @@ MERCHANTABLITY OR NON-INFRINGEMENT.
 See the Apache Version 2.0 License for specific language governing permissions
 and limitations under the License.
 ***************************************************************************** */
-declare module "#typescript" {
+declare  module "#typescript" {
     namespace server {
         namespace protocol {
             export import ApplicableRefactorInfo = ts.ApplicableRefactorInfo;
@@ -13615,7 +13615,10 @@ declare module "#typescript" {
         FixedChunkSize = 3,
     }
     type CompilerOptionsValue = string | number | boolean | (string | number)[] | string[] | MapLike<string[]> | PluginImport[] | ProjectReference[] | null | undefined;
+    /** @internal */
+    type IssueType = "baseUrl" | "rootDir" | "types";
     interface CompilerOptions {
+        /** @internal */ issueType?: IssueType;
         /** @internal */ all?: boolean;
         allowImportingTsExtensions?: boolean;
         allowJs?: boolean;
@@ -20792,8 +20795,6 @@ declare module "#typescript" {
      * @internal
      */
     function sourceFileMayBeEmitted(sourceFile: SourceFile, host: SourceFileMayBeEmittedHost, forceDtsEmit?: boolean): boolean;
-    /**@internal */
-    function tsFixRootDirSignal(kind: string, rootDir: string, rootDir60: string): void;
     /** @internal */
     function sourceFileMayBeEmitted60(sourceFile: SourceFile, host: SourceFileMayBeEmittedHost, forceDtsEmit?: boolean): boolean;
     /** @internal */

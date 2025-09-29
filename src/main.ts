@@ -1,3 +1,4 @@
+import type { CompilerOptions, IssueType } from "#typescript";
 import { glob } from "glob";
 import { existsSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
@@ -9,10 +10,9 @@ import { getProjectsWithProgramIssues } from "./getProgramLevelIssues.ts";
 import { getAddWildcardPathsEdits, selectTsconfigForAddingPaths } from "./getResolutionUsesBaseUrlFixes.ts";
 import { Logger } from "./logger.ts";
 import { getRemoveBaseUrlEdits } from "./removeBaseUrl.ts";
-import type { IssueType, TextEdit, TSConfig } from "./types.ts";
+import type { TextEdit, TSConfig } from "./types.ts";
 import { createCopiedPathsEdits } from "./utils.ts";
 import { applyEditsToConfigs } from "./writeFixes.ts";
-import type { CompilerOptions } from "#typescript";
 
 function findWorkspaceRoot(tsconfigPath: string): string {
   let currentDir = dirname(tsconfigPath);

@@ -3,6 +3,7 @@ import {
   type ExtendedConfigCacheEntry,
   formatDiagnostic,
   type FormatDiagnosticsHost,
+  type IssueType,
   nodeNextJsonConfigResolver,
   type NullLiteral,
   type ObjectLiteralExpression,
@@ -17,7 +18,7 @@ import {
   type TsConfigSourceFile,
 } from "#typescript";
 import { dirname, extname } from "node:path";
-import type { ConfigValue, IssueType, ProjectTSConfig, RootDirStack, TSConfig } from "./types.ts";
+import type { ConfigValue, ProjectTSConfig, RootDirStack, TSConfig } from "./types.ts";
 import { getCanonicalFileName, isProjectTSConfig, toPath } from "./utils.ts";
 
 const diagnosticFormatHost: FormatDiagnosticsHost = {
@@ -92,7 +93,7 @@ export class ConfigStore {
     };
   }
 
-  getConfigsWithPotentialRootDirIssues() : Configs {
+  getConfigsWithPotentialRootDirIssues(): Configs {
     const affectedProjects: ProjectTSConfig[] = [];
     for (const projectConfig of this.projectConfigs.values()) {
       if (this.hasPotentialChangeInRootDir(projectConfig)) {

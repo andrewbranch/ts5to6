@@ -8,7 +8,7 @@ import { writeFixes } from "../src/writeFixes.ts";
 
 test("writeFixes - applies single edit to file", () => {
   // Create a temporary directory and file
-  const tempDir = mkdtempSync(join(tmpdir(), "ts-fix-baseurl-test-"));
+  const tempDir = mkdtempSync(join(tmpdir(), "ts5to6-test-"));
   const testFile = join(tempDir, "test.json");
 
   try {
@@ -49,7 +49,7 @@ test("writeFixes - applies single edit to file", () => {
 
 test("writeFixes - applies multiple edits to same file", () => {
   // Create a temporary directory and file
-  const tempDir = mkdtempSync(join(tmpdir(), "ts-fix-baseurl-test-"));
+  const tempDir = mkdtempSync(join(tmpdir(), "ts5to6-test-"));
   const testFile = join(tempDir, "tsconfig.json");
 
   try {
@@ -105,7 +105,7 @@ test("writeFixes - applies multiple edits to same file", () => {
 
 test("writeFixes - applies edits to multiple files", () => {
   // Create a temporary directory and files
-  const tempDir = mkdtempSync(join(tmpdir(), "ts-fix-baseurl-test-"));
+  const tempDir = mkdtempSync(join(tmpdir(), "ts5to6-test-"));
   const file1 = join(tempDir, "tsconfig1.json");
   const file2 = join(tempDir, "tsconfig2.json");
 
@@ -150,7 +150,7 @@ test("writeFixes - applies edits to multiple files", () => {
 
 test("writeFixes - throws error on overlapping edits", () => {
   // Create a temporary directory and file
-  const tempDir = mkdtempSync(join(tmpdir(), "ts-fix-baseurl-test-"));
+  const tempDir = mkdtempSync(join(tmpdir(), "ts5to6-test-"));
   const testFile = join(tempDir, "test.json");
 
   try {

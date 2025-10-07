@@ -33,34 +33,40 @@ interface RunContext {
 // Root command (expand later with subcommands by adding entries to commands array)
 const rootCommand: CommandSpec = {
   name: "",
-  description: "Migrate TypeScript projects away from baseUrl usage",
+  description: "Migrate TypeScript config files to be compatible with TypeScript 6.0",
   options: [
     { name: "help", short: "h", type: "boolean", description: "Show help and usage information" },
     { name: "version", short: "v", type: "boolean", description: "Show the version number" },
     {
-      name: "rootDir",
+      name: "fixRootDir",
       short: "r",
       type: "boolean",
-      description: "Set rootDir in config to what it would have computed by typescript@5.9",
+      description: "Set rootDir to the value TypeScript 5.9 would have computed",
     },
     {
-      name: "baseUrl",
+      name: "fixBaseUrl",
       short: "b",
       type: "boolean",
-      description: "Migrate TypeScript projects away from baseUrl usage",
+      description: "Remove baseUrl, updating `paths` if necessary",
     },
   ],
   run: async ({ values, positionals }) => {
-    // Placeholder business logic; show help if nothing supplied for now.
+    const logger = new Logger((msg) => console.log(msg));
     if (positionals.length === 0) return printHelpAndReturn(0);
+    if (values.fixRootDir && values.fixBaseUrl) {
+      logger.error(`Cannot use ${logger.code("--fixRootDir")} and ${logger.code("--fixBaseUrl")} together`);
+      return 1;
+    }
+    if (!values.fixRootDir && !values.fixBaseUrl) {
+      logger.error(`Either ${logger.code("--fixRootDir")} or ${logger.code("--fixBaseUrl")} must be specified`);
+      return 1;
+    }
 
     try {
-      await fixIssue(positionals[0], values.rootDir ? "rootDir" : "baseUrl");
+      await fixIssue(positionals[0], values.fixRootDir ? "rootDir" : "baseUrl");
       return 0;
     } catch (error) {
-      new Logger((msg) => console.log(msg)).error(
-        `Failed to migrate project: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logger.error(`Failed to migrate project: ${error instanceof Error ? error.message : String(error)}`);
       return 1;
     }
   },
@@ -108,10 +114,10 @@ function renderHelp(commandName?: string): string {
   lines.push("");
   const usageBase = chalk.bold("Usage:");
   if (command === rootCommand) {
-    lines.push(`${usageBase} ${chalk.cyan("ts-fix-baseurl")} ${chalk.yellow("[options]")} ${chalk.green("<path>")}`);
+    lines.push(`${usageBase} ${chalk.cyan("ts5to6")} ${chalk.yellow("[options]")} ${chalk.green("<path>")}`);
   } else {
     lines.push(
-      `${usageBase} ${chalk.cyan("ts-fix-baseurl")} ${chalk.magenta(command.name)} ${chalk.yellow("[options]")}`,
+      `${usageBase} ${chalk.cyan("ts5to6")} ${chalk.magenta(command.name)} ${chalk.yellow("[options]")}`,
     );
   }
   lines.push("");
@@ -133,12 +139,22 @@ function renderHelp(commandName?: string): string {
   }
   lines.push("");
   lines.push(chalk.dim("Examples:"));
-  lines.push(chalk.dim("  ts-fix-baseurl .                              # Fix current directory"));
-  lines.push(chalk.dim("  ts-fix-baseurl ./tsconfig.json                # Fix specific tsconfig"));
-  lines.push(chalk.dim("  ts-fix-baseurl my-project/                    # Fix project directory"));
-  lines.push(chalk.dim("  ts-fix-baseurl --rootDir .                    # Fix current directory with the rootDir"));
-  lines.push(chalk.dim("  ts-fix-baseurl --rootDir ./tsconfig.json      # Fix specific tsconfig with the rootDir"));
-  lines.push(chalk.dim("  ts-fix-baseurl --rootDir my-project/          # Fix project directory with the rootDir"));
+  lines.push(
+    chalk.dim(
+      "  ts5to6 --fixRootDir .                      # Fix rootDir in tsconfig.json and related configs in directory",
+    ),
+  );
+  lines.push(
+    chalk.dim("  ts5to6 --fixRootDir ./tsconfig.app.json    # Fix rootDir in specific config and related configs"),
+  );
+  lines.push(
+    chalk.dim(
+      "  ts5to6 --fixBaseUrl .                      # Remove baseUrl in tsconfig.json and related configs in directory",
+    ),
+  );
+  lines.push(
+    chalk.dim("  ts5to6 --fixBaseUrl ./tsconfig.app.json    # Remove baseUrl in specific config and related configs"),
+  );
   lines.push("");
   return lines.join("\n");
 }

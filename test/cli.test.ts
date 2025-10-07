@@ -25,7 +25,7 @@ test("prints help with --help", () => {
   const { stdout, status } = runCLI(["--help"]);
   assert.equal(status, 0);
   const cleanOutput = stripAnsiCodes(stdout);
-  assert.match(cleanOutput, /Usage: ts-fix-baseurl/);
+  assert.match(cleanOutput, /Usage: ts5to6/);
 });
 
 test("prints version with --version", () => {

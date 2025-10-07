@@ -17,8 +17,8 @@ function pathInFixture(issueType: "baseUrl" | "rootDir", ...subpath: string[]) {
 }
 
 export function fixturePath(issueType: "baseUrl" | "rootDir", ...subPath: string[]) {
-    const path =  pathInFixture(issueType, ...subPath)
-    return relative(pathInFixture(issueType), path)
+  const path = pathInFixture(issueType, ...subPath);
+  return relative(pathInFixture(issueType), path);
 }
 
 export function getFixIssueSync(issueType: "baseUrl" | "rootDir", ...fixture: string[]) {
@@ -33,4 +33,3 @@ export function getFixIssueSync(issueType: "baseUrl" | "rootDir", ...fixture: st
   }
   return { path: fixturePath(issueType, ...fixture), result };
 }
-

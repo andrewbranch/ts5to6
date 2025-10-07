@@ -28,9 +28,6 @@
     "version-packages": "changeset version",
     "release": "changeset publish"
   },
-  "engines": {
-    "node": ">=20.19.0"
-  },
   "dependencies": {
     "chalk": "^5.6.0",
     "glob": "^11.0.3"

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getFixIssueSync, fixturePath } from "./integration.test.ts";
+import { fixturePath, getFixIssueSync } from "./integration.test.ts";
 
 function fixBaseUrlSync(...subPath: string[]) {
   return getFixIssueSync("baseUrl", ...subPath);

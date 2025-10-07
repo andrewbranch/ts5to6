@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getFixIssueSync, fixturePath } from "./integration.test.ts";
+import { fixturePath, getFixIssueSync } from "./integration.test.ts";
 
 function fixRootDirSync(...fixture: string[]) {
- return getFixIssueSync("rootDir", ...fixture)
+  return getFixIssueSync("rootDir", ...fixture);
 }
 
 test("integration - extends-without-options", () => {

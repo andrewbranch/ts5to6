@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --experimental-strip-types
+#!/usr/bin/env -S node
 
 import chalk from "chalk";
 import { readFileSync } from "node:fs";

@@ -6,7 +6,9 @@
   "excludes": [
     "node_modules",
     "dist",
-    "**/*.d.ts"
+    "**/*.d.ts",
+    "vendor",
+    "test/fixtures"
   ],
   "plugins": [
     "https://plugins.dprint.dev/typescript-0.93.0.wasm",
